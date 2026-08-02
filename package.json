@@ -1,0 +1,24 @@
+{
+  "name": "erms-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise Restaurant Management System (ERMS) Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev:backend": "npm run start:dev --workspace=apps/backend",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "build:shared": "npm run build --workspace=packages/shared",
+    "db:generate": "npm run db:generate --workspace=apps/backend",
+    "db:push": "npm run db:push --workspace=apps/backend",
+    "db:seed": "npm run db:seed --workspace=apps/backend",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: erms-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: erms_user
+      POSTGRES_PASSWORD: erms_password_2026
+      POSTGRES_DB: erms_production
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erms_user -d erms_production"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: erms-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    container_name: erms-backend
+    restart: always
+    environment:
+      PORT: 4000
+      DATABASE_URL: "postgresql://erms_user:erms_password_2026@postgres:5432/erms_production?schema=public"
+      REDIS_HOST: "redis"
+      REDIS_PORT: 6379
+      JWT_SECRET: "super-secret-erms-jwt-key-2026"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    container_name: erms-frontend
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:4000/api/v1"
+      NEXT_PUBLIC_SOCKET_URL: "http://localhost:4000/kds"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: erms-prometheus
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+volumes:
+  postgres_data:
+  redis_data:
