@@ -29,6 +29,14 @@ export const CreateOrderSchema = z.object({
   items: z.array(CreateOrderItemSchema).min(1, 'Order must contain at least one item')
 });
 
+export const AppendOrderItemsSchema = z.object({
+  items: z.array(CreateOrderItemSchema).min(1, 'At least one item required to append')
+});
+
+export const CancelOrderSchema = z.object({
+  reason: z.string().trim().min(1, 'Cancellation reason is required')
+});
+
 export const SplitPaymentItemSchema = z.object({
   amount: z.number().positive(),
   paymentMethod: z.nativeEnum(PaymentMethod),

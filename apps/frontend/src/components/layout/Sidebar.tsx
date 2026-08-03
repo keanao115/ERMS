@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -16,31 +16,58 @@ import {
   ShieldAlert, 
   Settings,
   LogOut,
-  Sparkles
+  Sparkles,
+  Clock
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: any;
+  badge?: string;
+  managerOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'My Shift Attendance', href: '/my-attendance', icon: Clock },
   { label: 'Point of Sale', href: '/pos', icon: UtensilsCrossed, badge: 'LIVE' },
   { label: 'Kitchen KDS', href: '/kds', icon: ChefHat, badge: 'REALTIME' },
   { label: 'Menu & Recipes', href: '/menu', icon: BookOpen },
   { label: 'Tables & Floor', href: '/tables', icon: Grid3X3 },
   { label: 'Reservations', href: '/reservations', icon: Calendar },
   { label: 'Inventory & POs', href: '/inventory', icon: Package },
-  { label: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { label: 'Workforce & HR', href: '/employees', icon: Users },
-  { label: 'Audit Trail', href: '/audit-logs', icon: ShieldAlert },
+  { label: 'Workforce & Timesheet Management', href: '/employees', icon: Users, managerOnly: true, badge: 'MGR' },
+  { label: 'Financial & Recipe Costing Analytics Engine', href: '/analytics', icon: BarChart3, managerOnly: true, badge: 'MGR' },
+  { label: 'Security Audit Trail & Compliance Log', href: '/audit-logs', icon: ShieldAlert, managerOnly: true, badge: 'MGR' },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    import('@/lib/api').then(({ getAuthUser }) => {
+      const u = getAuthUser();
+      if (u?.role) setUserRole(u.role);
+    });
+  }, []);
+
+  const isManagerOrAdmin = userRole === 'STORE_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'RESTAURANT_OWNER' || userRole === 'REGIONAL_MANAGER';
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.managerOnly && !isManagerOrAdmin) {
+      return false;
+    }
+    return true;
+  });
 
   const handleLogout = () => {
-    localStorage.removeItem('erms_access_token');
-    localStorage.removeItem('erms_user');
-    window.location.href = '/login';
+    import('@/lib/api').then(({ clearAuthSession }) => {
+      clearAuthSession();
+      window.location.href = '/login';
+    });
   };
 
   return (
@@ -59,25 +86,25 @@ export default function Sidebar() {
 
         {/* Navigation Items */}
         <nav className="space-y-1">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 
             return (
               <Link key={item.href} href={item.href}>
                 <div
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-150 ${
                     isActive
-                      ? 'bg-blue-600/90 text-white shadow-md shadow-blue-600/30'
+                      ? 'bg-blue-600/90 text-white shadow-md shadow-blue-600/30 font-semibold'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
-                    <span>{item.label}</span>
+                  <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+                    <span className="truncate">{item.label}</span>
                   </div>
                   {item.badge && (
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 shrink-0">
                       {item.badge}
                     </span>
                   )}
@@ -91,7 +118,7 @@ export default function Sidebar() {
       {/* Logout Button */}
       <button
         onClick={handleLogout}
-        className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+        className="flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
       >
         <LogOut className="w-4 h-4" />
         <span>Sign Out</span>

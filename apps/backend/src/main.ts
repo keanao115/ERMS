@@ -1,3 +1,8 @@
+import 'dotenv/config';
+
+// Force DATABASE_URL to port 5433 to connect to Docker container
+process.env.DATABASE_URL = 'postgresql://erms_user:erms_password_2026@localhost:5433/erms_production?schema=public';
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';

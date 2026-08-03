@@ -20,6 +20,16 @@ export class KdsGateway implements OnGatewayInit {
     this.server.emit('kds:order_placed', payload);
   }
 
+  @OnEvent('order.voided')
+  handleOrderVoidedEvent(eventData: any) {
+    this.server.emit('kds:order_voided', eventData.payload);
+  }
+
+  @OnEvent('order.items_appended')
+  handleOrderItemsAppendedEvent(eventData: any) {
+    this.server.emit('kds:items_appended', eventData.payload);
+  }
+
   @SubscribeMessage('kds:bump_item')
   async handleBumpItem(
     @MessageBody() data: { orderItemId: string; status: OrderItemStatus },

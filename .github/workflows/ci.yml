@@ -60,5 +60,8 @@ jobs:
           npx tsc --noEmit --project apps/backend/tsconfig.json
           npx tsc --noEmit --project apps/frontend/tsconfig.json
 
+      - name: Run Automated Unit Test Suite
+        run: npm run test --workspace=apps/backend
+
       - name: Build Production Bundles
         run: npm run build

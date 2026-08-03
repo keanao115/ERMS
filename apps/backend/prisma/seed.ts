@@ -5,7 +5,36 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('❌ Security Guard: Database seed execution is strictly BLOCKED in production mode (NODE_ENV=production).');
+    process.exit(1);
+  }
+
   console.log('🌱 Seeding Enterprise Restaurant Management System (ERMS)...');
+
+  // 0. Clean existing database records
+  await prisma.auditLog.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.reservation.deleteMany();
+  await prisma.attendance.deleteMany();
+  await prisma.shift.deleteMany();
+  await prisma.employee.deleteMany();
+  await prisma.recipeIngredient.deleteMany();
+  await prisma.purchaseOrderItem.deleteMany();
+  await prisma.purchaseOrder.deleteMany();
+  await prisma.inventoryTransaction.deleteMany();
+  await prisma.ingredient.deleteMany();
+  await prisma.supplier.deleteMany();
+  await prisma.menuItemAddon.deleteMany();
+  await prisma.menuItemVariant.deleteMany();
+  await prisma.menuItem.deleteMany();
+  await prisma.category.deleteMany();
+  await prisma.table.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.branch.deleteMany();
+  await prisma.restaurant.deleteMany();
 
   // 1. Create Restaurant Enterprise
   const restaurant = await prisma.restaurant.create({
@@ -79,13 +108,13 @@ async function main() {
 
   // 4. Create Tables floor plan for Downtown Branch
   const tableData = [
-    { tableNumber: 'T-01', capacity: 2, posX: 10, posY: 10, status: TableStatus.OCCUPIED },
-    { tableNumber: 'T-02', capacity: 4, posX: 30, posY: 10, status: TableStatus.BILL_REQUESTED },
+    { tableNumber: 'T-01', capacity: 2, posX: 10, posY: 10, status: TableStatus.AVAILABLE },
+    { tableNumber: 'T-02', capacity: 4, posX: 30, posY: 10, status: TableStatus.AVAILABLE },
     { tableNumber: 'T-03', capacity: 4, posX: 50, posY: 10, status: TableStatus.AVAILABLE },
-    { tableNumber: 'T-04', capacity: 6, posX: 70, posY: 10, status: TableStatus.RESERVED },
-    { tableNumber: 'T-05', capacity: 2, posX: 10, posY: 40, status: TableStatus.OCCUPIED },
+    { tableNumber: 'T-04', capacity: 6, posX: 70, posY: 10, status: TableStatus.AVAILABLE },
+    { tableNumber: 'T-05', capacity: 2, posX: 10, posY: 40, status: TableStatus.AVAILABLE },
     { tableNumber: 'T-06', capacity: 4, posX: 30, posY: 40, status: TableStatus.AVAILABLE },
-    { tableNumber: 'T-07', capacity: 4, posX: 50, posY: 40, status: TableStatus.BUSSING },
+    { tableNumber: 'T-07', capacity: 4, posX: 50, posY: 40, status: TableStatus.AVAILABLE },
     { tableNumber: 'T-08', capacity: 8, posX: 70, posY: 40, status: TableStatus.AVAILABLE }
   ];
 
@@ -239,65 +268,62 @@ async function main() {
   });
 
   // 8. Create Realistic POS Orders
-  const order1 = await prisma.order.create({
-    data: {
-      branchId: downtownBranch.id,
-      tableId: createdTables[0].id, // T-01
-      createdById: createdUsers[UserRole.WAITER].id,
-      orderNumber: 'ORD-1001',
-      orderType: OrderType.DINE_IN,
-      status: OrderStatus.IN_PREPARATION,
-      customerName: 'Jonathan Vance',
-      subtotal: 189.00,
-      taxAmount: 16.54,
-      tipAmount: 35.00,
-      totalAmount: 240.54,
-      items: {
-        create: [
-          { menuItemId: dishWagyu.id, variantId: wagyuVariant8oz.id, quantity: 1, unitPrice: 125.00, status: 'COOKING', station: KitchenStation.GRILL, timerStartedAt: new Date() },
-          { menuItemId: dishTruffleRisotto.id, quantity: 1, unitPrice: 38.00, status: 'COOKING', station: KitchenStation.GRILL, timerStartedAt: new Date() },
-          { menuItemId: dishSmokedOldFashioned.id, quantity: 1, unitPrice: 26.00, status: 'BUMPED', station: KitchenStation.BAR }
-        ]
-      }
-    }
-  });
-
-  const order2 = await prisma.order.create({
-    data: {
-      branchId: downtownBranch.id,
-      tableId: createdTables[1].id, // T-02
-      createdById: createdUsers[UserRole.CASHIER].id,
-      orderNumber: 'ORD-1002',
-      orderType: OrderType.DINE_IN,
-      status: OrderStatus.PAID,
-      customerName: 'Victoria Secret Party',
-      subtotal: 211.00,
-      taxAmount: 18.46,
-      tipAmount: 40.00,
-      totalAmount: 269.46,
-      items: {
-        create: [
-          { menuItemId: dishSalmon.id, quantity: 2, unitPrice: 42.00, status: 'SERVED', station: KitchenStation.GRILL },
-          { menuItemId: dishTunaTartare.id, quantity: 1, unitPrice: 26.00, status: 'SERVED', station: KitchenStation.COLD_PREP },
-          { menuItemId: dishSmokedOldFashioned.id, quantity: 4, unitPrice: 22.00, status: 'SERVED', station: KitchenStation.BAR }
-        ]
-      },
-      payments: {
-        create: [
-          { paymentMethod: PaymentMethod.CREDIT_CARD, amount: 134.73, tipAmount: 20.00, status: PaymentStatus.COMPLETED, seatNumber: 1, transactionRef: 'TXN-9988112' },
-          { paymentMethod: PaymentMethod.APPLE_PAY, amount: 134.73, tipAmount: 20.00, status: PaymentStatus.COMPLETED, seatNumber: 2, transactionRef: 'TXN-9988113' }
-        ]
-      }
-    }
-  });
 
   // 9. Employee Staff Shifts & Attendance
+  const empManager = await prisma.employee.create({
+    data: {
+      userId: createdUsers[UserRole.STORE_MANAGER].id,
+      branchId: downtownBranch.id,
+      jobTitle: 'Store General Manager',
+      hourlyRate: 38.50
+    }
+  });
+
+  const empCashier = await prisma.employee.create({
+    data: {
+      userId: createdUsers[UserRole.CASHIER].id,
+      branchId: downtownBranch.id,
+      jobTitle: 'Head Cashier & POS Operator',
+      hourlyRate: 22.00
+    }
+  });
+
+  const empChef = await prisma.employee.create({
+    data: {
+      userId: createdUsers[UserRole.KITCHEN_STAFF].id,
+      branchId: downtownBranch.id,
+      jobTitle: 'Executive Head Chef',
+      hourlyRate: 42.00
+    }
+  });
+
   const empWaiter = await prisma.employee.create({
     data: {
       userId: createdUsers[UserRole.WAITER].id,
       branchId: downtownBranch.id,
       jobTitle: 'Senior Fine Dining Waiter',
       hourlyRate: 24.50
+    }
+  });
+
+  const empInventory = await prisma.employee.create({
+    data: {
+      userId: createdUsers[UserRole.INVENTORY_MANAGER].id,
+      branchId: downtownBranch.id,
+      jobTitle: 'Inventory Operations Specialist',
+      hourlyRate: 28.00
+    }
+  });
+
+  // Create realistic shifts
+  await prisma.shift.create({
+    data: {
+      employeeId: empManager.id,
+      branchId: downtownBranch.id,
+      shiftType: ShiftType.MORNING,
+      startTime: new Date(Date.now() - 3600000 * 5),
+      endTime: new Date(Date.now() + 3600000 * 3),
+      isApproved: true
     }
   });
 
@@ -309,6 +335,25 @@ async function main() {
       startTime: new Date(Date.now() - 3600000 * 4),
       endTime: new Date(Date.now() + 3600000 * 4),
       isApproved: true
+    }
+  });
+
+  await prisma.shift.create({
+    data: {
+      employeeId: empChef.id,
+      branchId: downtownBranch.id,
+      shiftType: ShiftType.MORNING,
+      startTime: new Date(Date.now() - 3600000 * 6),
+      endTime: new Date(Date.now() + 3600000 * 2),
+      isApproved: true
+    }
+  });
+
+  // Attendance records
+  await prisma.attendance.create({
+    data: {
+      employeeId: empManager.id,
+      clockIn: new Date(Date.now() - 3600000 * 5)
     }
   });
 

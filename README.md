@@ -71,6 +71,10 @@ npm run db:seed
 
 ## 🔑 Demo Account Personas
 
+> [!WARNING]
+> **DEVELOPMENT & DEMO CREDENTIALS ONLY**
+> The accounts listed below are provided strictly for local development, demonstration, and evaluation testing. **They MUST be disabled or have their passwords rotated prior to any production environment deployment.** The database seed script automatically blocks execution when `NODE_ENV=production`.
+
 | Role | Email | Password | Access Capabilities |
 | :--- | :--- | :--- | :--- |
 | **Super Admin** | `admin@aura.com` | `Password123!` | Global Organization & Infrastructure Override |

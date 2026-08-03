@@ -13,5 +13,7 @@
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true
-  }
+  },
+  "include": ["src/**/*", "prisma/**/*"],
+  "exclude": ["dist", "node_modules"]
 }

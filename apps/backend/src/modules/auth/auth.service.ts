@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
+  public static readonly SERVER_BOOT_ID = uuidv4();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -68,13 +70,60 @@ export class AuthService {
         branchName: user.branch?.name
       },
       accessToken,
-      refreshToken
+      refreshToken,
+      serverBootId: AuthService.SERVER_BOOT_ID
     };
+  }
+
+  async refreshAccessToken(refreshTokenStr: string) {
+    try {
+      const payload = this.jwtService.verify(refreshTokenStr);
+      const isBlacklisted = await this.redisService.get(`auth:token_blacklist:${payload.jti}`);
+      if (isBlacklisted) {
+        throw new UnauthorizedException('Refresh token has been revoked');
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub }
+      });
+
+      if (!user || !user.isActive) {
+        throw new UnauthorizedException('User account inactive or missing');
+      }
+
+      const newJti = uuidv4();
+      const newAccessToken = this.jwtService.sign({
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+        branchId: user.branchId,
+        restaurantId: user.restaurantId,
+        jti: newJti
+      }, { expiresIn: '1d' });
+
+      const newRefreshToken = this.jwtService.sign(
+        { sub: user.id, jti: uuidv4() },
+        { expiresIn: '7d' }
+      );
+
+      await this.redisService.set(`auth:token_blacklist:${payload.jti}`, 'true', 86400 * 7);
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        serverBootId: AuthService.SERVER_BOOT_ID
+      };
+    } catch (err) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
+  getServerInstance() {
+    return { serverBootId: AuthService.SERVER_BOOT_ID };
   }
 
   async logout(jti: string) {
     if (jti) {
-      // Blacklist token in Redis for 1 day
       await this.redisService.set(`auth:token_blacklist:${jti}`, 'true', 86400);
     }
     return { success: true, message: 'Logged out successfully' };

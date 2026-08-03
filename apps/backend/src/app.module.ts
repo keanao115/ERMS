@@ -12,6 +12,9 @@ import { MenuModule } from './modules/menu/menu.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { AdaptersModule } from './modules/adapters/adapters.module';
+import { RestaurantsModule } from './modules/restaurants/restaurants.module';
+import { PayrollModule } from './modules/payroll/payroll.module';
+import { PromotionsModule } from './modules/promotions/promotions.module';
 
 @Module({
   imports: [
@@ -27,7 +30,10 @@ import { AdaptersModule } from './modules/adapters/adapters.module';
     MenuModule,
     AuditLogModule,
     EmployeesModule,
-    AdaptersModule
+    AdaptersModule,
+    RestaurantsModule,
+    PayrollModule,
+    PromotionsModule
   ]
 })
 export class AppModule {}

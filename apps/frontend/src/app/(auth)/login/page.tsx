@@ -6,8 +6,8 @@ import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@aura.com');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,12 +25,24 @@ export default function LoginPage() {
 
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { accessToken, user } = res.data;
+      const { accessToken, refreshToken, user, serverBootId } = res.data;
 
-      localStorage.setItem('erms_access_token', accessToken);
-      localStorage.setItem('erms_user', JSON.stringify(user));
+      // Store in sessionStorage so closing the browser/tab clears the session
+      sessionStorage.setItem('erms_access_token', accessToken);
+      sessionStorage.setItem('erms_user', JSON.stringify(user));
+      if (serverBootId) {
+        sessionStorage.setItem('erms_server_boot_id', serverBootId);
+      }
+      if (refreshToken) {
+        sessionStorage.setItem('erms_refresh_token', refreshToken);
+      }
 
-      window.location.href = '/dashboard';
+      // Clear legacy localStorage keys to ensure clean session
+      localStorage.removeItem('erms_access_token');
+      localStorage.removeItem('erms_refresh_token');
+      localStorage.removeItem('erms_user');
+
+      window.location.href = '/my-attendance';
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please check backend API.');
     } finally {

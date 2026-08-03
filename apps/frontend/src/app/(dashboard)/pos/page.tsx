@@ -1,91 +1,398 @@
 'use client';
 
-import React, { useState } from 'react';
-import { 
-  Utensils, 
-  Search, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  CreditCard, 
-  DollarSign, 
-  CheckCircle2, 
-  Printer, 
-  Grid3X3, 
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  Search,
+  Plus,
+  Minus,
+  CreditCard,
+  Printer,
+  Grid3X3,
   Receipt,
   X,
-  Sparkles
+  Loader2,
+  AlertTriangle,
+  RotateCcw,
+  Ban,
+  ChefHat
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { io, Socket } from 'socket.io-client';
+import { api, getAuthUser } from '@/lib/api';
 
-const sampleDishes = [
-  { id: 'dish-1', name: 'A5 Miyazaki Wagyu Ribeye', price: 125.00, category: 'Prime Steaks', station: 'GRILL', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80' },
-  { id: 'dish-2', name: 'Black Truffle Risotto', price: 38.00, category: 'Chef Signatures', station: 'GRILL', image: 'https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=400&q=80' },
-  { id: 'dish-3', name: 'Ora King Salmon', price: 42.00, category: 'Chef Signatures', station: 'GRILL', image: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=400&q=80' },
-  { id: 'dish-4', name: 'Yellowfin Tuna Tartare', price: 26.00, category: 'Appetizers', station: 'COLD_PREP', image: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=400&q=80' },
-  { id: 'dish-5', name: 'Smoked Bourbon Old Fashioned', price: 22.00, category: 'Cocktails', station: 'BAR', image: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=400&q=80' }
-];
+interface MenuItemVariant {
+  id: string;
+  name: string;
+  priceDelta: number;
+}
 
-const tables = [
-  { number: 'T-01', status: 'OCCUPIED', seats: 2 },
-  { number: 'T-02', status: 'BILL_REQUESTED', seats: 4 },
-  { number: 'T-03', status: 'AVAILABLE', seats: 4 },
-  { number: 'T-04', status: 'RESERVED', seats: 6 },
-  { number: 'T-05', status: 'OCCUPIED', seats: 2 },
-  { number: 'T-06', status: 'AVAILABLE', seats: 4 }
-];
+interface MenuItem {
+  id: string;
+  name: string;
+  basePrice: number;
+  station: string;
+  imageUrl?: string | null;
+  isAvailable: boolean;
+  variants: MenuItemVariant[];
+}
+
+interface Category {
+  id: string;
+  name: string;
+  menuItems: MenuItem[];
+}
+
+interface RestaurantTable {
+  id: string;
+  tableNumber: string;
+  capacity: number;
+  status: string;
+}
+
+interface CartLine {
+  menuItem: MenuItem;
+  quantity: number;
+  isSentToKitchen?: boolean;
+}
+
+interface CurrentUser {
+  id: string;
+  branchId: string | null;
+  restaurantId: string | null;
+  role: string;
+}
+
+function getSocketUrl(): string {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  return apiBase.replace(/\/api\/v1\/?$/, '');
+}
 
 export default function PosPage() {
-  const [selectedTable, setSelectedTable] = useState('T-01');
+  const [user, setUser] = useState<CurrentUser | null>(null);
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
+  const [selectedTableId, setSelectedTableId] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState<Array<{ dish: typeof sampleDishes[0]; quantity: number }>>([
-    { dish: sampleDishes[0], quantity: 1 },
-    { dish: sampleDishes[4], quantity: 2 }
-  ]);
+  const [cart, setCart] = useState<CartLine[]>([]);
+
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [settling, setSettling] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
+
+  // Manager Void / Refund Modal State
+  const [modalMode, setModalMode] = useState<'VOID' | 'REFUND' | null>(null);
+  const [managerReason, setManagerReason] = useState('');
+  const [managerSubmitting, setManagerSubmitting] = useState(false);
+  const [managerError, setManagerError] = useState('');
+
+  // Real-time cancellation race alert popup
+  const [cancellationAlert, setCancellationAlert] = useState<{ actorName: string; source: string; reason: string; orderNumber: string } | null>(null);
+
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [tipPercent, setTipPercent] = useState(18);
 
-  const filteredDishes = sampleDishes.filter((d) => {
-    const matchesCategory = selectedCategory === 'ALL' || d.category === selectedCategory;
+  const isManager = user?.role === 'SUPER_ADMIN' || user?.role === 'RESTAURANT_OWNER' || user?.role === 'STORE_MANAGER';
+
+  // Load Active Order when Table selected
+  const handleTableSelect = useCallback(async (tableId: string, currentBranchId?: string) => {
+    setSelectedTableId(tableId);
+    setActionError('');
+    setActionSuccess('');
+
+    const bId = currentBranchId || user?.branchId;
+    if (!bId || !tableId) return;
+
+    try {
+      const res = await api.get(`/pos/tables/${tableId}/active-order`, {
+        params: { branchId: bId }
+      });
+
+      if (res.data) {
+        setOrderId(res.data.id);
+        setOrderNumber(res.data.orderNumber);
+        const existingLines: CartLine[] = (res.data.items || []).map((it: any) => ({
+          menuItem: it.menuItem,
+          quantity: it.quantity,
+          isSentToKitchen: true
+        }));
+        setCart(existingLines);
+      } else {
+        setOrderId(null);
+        setOrderNumber(null);
+        setCart([]);
+      }
+    } catch (err: any) {
+      setOrderId(null);
+      setOrderNumber(null);
+      setCart([]);
+    }
+  }, [user?.branchId]);
+
+  useEffect(() => {
+    const u = getAuthUser();
+    setUser(u);
+
+    if (!u?.restaurantId || !u?.branchId) {
+      setLoadError('No restaurantId / branchId bound to user profile.');
+      setLoading(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        const [menuRes, tablesRes] = await Promise.all([
+          api.get('/menu/categories', { params: { restaurantId: u.restaurantId } }),
+          api.get('/tables', { params: { branchId: u.branchId } })
+        ]);
+
+        setCategories(menuRes.data);
+        setTables(tablesRes.data);
+        if (tablesRes.data.length > 0) {
+          handleTableSelect(tablesRes.data[0].id, u.branchId || undefined);
+        }
+      } catch (err: any) {
+        setLoadError(err.response?.data?.message || 'Failed to connect to backend API.');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [handleTableSelect]);
+
+  // Subscribe to KDS WebSocket events for real-time race-condition cancellation alert
+  useEffect(() => {
+    if (!user?.branchId) return;
+
+    const socket = io(`${getSocketUrl()}/kds`, {
+      transports: ['websocket', 'polling']
+    });
+
+    socket.on('kds:order_voided', (payload: { orderId: string; orderNumber: string; reason: string; actorName: string; source: string }) => {
+      if (orderId && payload.orderId === orderId) {
+        setCancellationAlert({
+          orderNumber: payload.orderNumber,
+          actorName: payload.actorName,
+          source: payload.source === 'KDS_KITCHEN' ? 'Kitchen Staff' : 'Store Manager',
+          reason: payload.reason
+        });
+        resetOrder();
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user?.branchId, orderId]);
+
+  const allDishes: MenuItem[] = categories.flatMap((c) => c.menuItems);
+
+  const filteredDishes = allDishes.filter((d) => {
+    const matchesCategory =
+      selectedCategory === 'ALL' ||
+      categories.find((c) => c.name === selectedCategory)?.menuItems.some((mi) => mi.id === d.id);
     const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
-  const addToCart = (dish: typeof sampleDishes[0]) => {
+  const addToCart = (dish: MenuItem) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.dish.id === dish.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.dish.id === dish.id ? { ...item, quantity: item.quantity + 1 } : item
+      const existingUnsentIndex = prev.findIndex((item) => item.menuItem.id === dish.id && !item.isSentToKitchen);
+      if (existingUnsentIndex > -1) {
+        return prev.map((item, idx) =>
+          idx === existingUnsentIndex ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { dish, quantity: 1 }];
+      return [...prev, { menuItem: dish, quantity: 1, isSentToKitchen: false }];
     });
   };
 
-  const updateQuantity = (dishId: string, delta: number) => {
+  const updateQuantity = (menuItemId: string, delta: number) => {
     setCart((prev) =>
       prev
         .map((item) => {
-          if (item.dish.id === dishId) {
+          if (item.menuItem.id === menuItemId && !item.isSentToKitchen) {
             const newQty = item.quantity + delta;
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
           return item;
         })
-        .filter(Boolean) as any
+        .filter(Boolean) as CartLine[]
     );
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + item.dish.price * item.quantity, 0);
+  const subtotal = cart.reduce((sum, item) => sum + item.menuItem.basePrice * item.quantity, 0);
   const tax = Math.round(subtotal * 0.08875 * 100) / 100;
   const tip = Math.round(subtotal * (tipPercent / 100) * 100) / 100;
   const total = Math.round((subtotal + tax + tip) * 100) / 100;
 
+  const selectedTable = tables.find((t) => t.id === selectedTableId);
+  const hasUnsentItems = cart.some((i) => !i.isSentToKitchen);
+
+  const submitOrder = async () => {
+    if (!user?.branchId || cart.length === 0) return null;
+    setPlacingOrder(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      if (orderId) {
+        // Active order exists -> append unsent items
+        const unsentItems = cart.filter((i) => !i.isSentToKitchen);
+        const res = await api.post(`/pos/orders/${orderId}/append-items`, {
+          items: unsentItems.map((item) => ({
+            menuItemId: item.menuItem.id,
+            quantity: item.quantity
+          }))
+        });
+        setCart(cart.map((i) => ({ ...i, isSentToKitchen: true })));
+        setActionSuccess('New items sent to Kitchen!');
+        return res.data;
+      } else {
+        // Create brand new order
+        const res = await api.post('/pos/orders', {
+          branchId: user.branchId,
+          tableId: selectedTableId || undefined,
+          orderType: 'DINE_IN',
+          items: cart.map((item) => ({
+            menuItemId: item.menuItem.id,
+            quantity: item.quantity
+          }))
+        });
+        setOrderId(res.data.id);
+        setOrderNumber(res.data.orderNumber);
+        setCart(cart.map((i) => ({ ...i, isSentToKitchen: true })));
+        setActionSuccess(`Order #${res.data.orderNumber} sent to Kitchen!`);
+        return res.data;
+      }
+    } catch (err: any) {
+      setActionError(err.response?.data?.message || 'Failed to send order.');
+      return null;
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
+  const settlePayment = async (paymentMethod: string) => {
+    setSettling(true);
+    setActionError('');
+    try {
+      let currentOrderId = orderId;
+      if (!currentOrderId) {
+        const order = await submitOrder();
+        if (!order) {
+          setSettling(false);
+          return;
+        }
+        currentOrderId = order.id;
+      }
+
+      await api.post('/pos/settle', {
+        orderId: currentOrderId,
+        payments: [{ paymentMethod, amount: total, tipAmount: tip }]
+      });
+
+      setShowCheckoutModal(false);
+      setShowReceiptModal(true);
+    } catch (err: any) {
+      setActionError(err.response?.data?.message || 'Payment settlement failed.');
+    } finally {
+      setSettling(false);
+    }
+  };
+
+  const handleManagerActionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderId || !modalMode || !managerReason.trim()) {
+      setManagerError('Please enter a cancellation reason.');
+      return;
+    }
+
+    setManagerSubmitting(true);
+    setManagerError('');
+
+    try {
+      const endpoint = modalMode === 'VOID' ? `/pos/orders/${orderId}/void` : `/pos/orders/${orderId}/refund`;
+      await api.post(endpoint, { reason: managerReason.trim() });
+      setActionSuccess(`Order ${orderNumber} successfully ${modalMode}ED.`);
+      setModalMode(null);
+      setManagerReason('');
+      resetOrder();
+    } catch (err: any) {
+      setManagerError(err.response?.data?.message || `${modalMode} order failed.`);
+    } finally {
+      setManagerSubmitting(false);
+    }
+  };
+
+  const resetOrder = () => {
+    setCart([]);
+    setOrderId(null);
+    setOrderNumber(null);
+    setShowReceiptModal(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span>Loading POS menu and floor tables...</span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
+        <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
+          <AlertTriangle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
+          <p className="text-sm text-white font-semibold mb-1">Failed to load POS data</p>
+          <p className="text-xs text-zinc-400">{loadError}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-6rem)] flex gap-6 select-none">
+      {/* Real-time Cancellation Race Condition Alert Modal */}
+      <AnimatePresence>
+        {cancellationAlert && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-panel p-6 rounded-3xl border border-rose-500/40 max-w-md w-full text-center shadow-2xl relative"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-3 border border-rose-500/30">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1">
+                Order #{cancellationAlert.orderNumber} Was Cancelled
+              </h3>
+              <p className="text-xs text-zinc-300 mb-4">
+                This order was cancelled by <span className="font-bold text-rose-300">{cancellationAlert.actorName}</span> ({cancellationAlert.source}).
+                <br />
+                <span className="italic text-zinc-400">Reason: &quot;{cancellationAlert.reason}&quot;</span>
+              </p>
+              <button
+                onClick={() => setCancellationAlert(null)}
+                className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30"
+              >
+                Return to Table Floor Plan
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Left Column: Tables + Category Filter + Dishes Grid */}
       <div className="flex-1 flex flex-col min-w-0 space-y-4">
         {/* Table Selector Row */}
@@ -96,15 +403,15 @@ export default function PosPage() {
           </span>
           {tables.map((tbl) => (
             <button
-              key={tbl.number}
-              onClick={() => setSelectedTable(tbl.number)}
+              key={tbl.id}
+              onClick={() => handleTableSelect(tbl.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all shrink-0 ${
-                selectedTable === tbl.number
+                selectedTableId === tbl.id
                   ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-600/30'
                   : 'bg-white/5 border-white/10 text-zinc-300 hover:border-white/20'
               }`}
             >
-              {tbl.number} ({tbl.seats} Seats)
+              {tbl.tableNumber} ({tbl.capacity} Seats)
             </button>
           ))}
         </div>
@@ -123,7 +430,7 @@ export default function PosPage() {
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto">
-            {['ALL', 'Prime Steaks', 'Chef Signatures', 'Appetizers', 'Cocktails'].map((cat) => (
+            {['ALL', ...categories.map((c) => c.name)].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -148,25 +455,29 @@ export default function PosPage() {
               className="glass-panel p-4 rounded-2xl border border-white/10 flex flex-col justify-between"
             >
               <div>
-                <img
-                  src={dish.image}
-                  alt={dish.name}
-                  className="w-full h-32 object-cover rounded-xl mb-3 border border-white/5"
-                />
+                {dish.imageUrl && (
+                  <img
+                    src={dish.imageUrl}
+                    alt={dish.name}
+                    className="w-full h-32 object-cover rounded-xl mb-3 border border-white/5"
+                  />
+                )}
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <h3 className="text-xs font-bold text-white leading-snug">{dish.name}</h3>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
                     {dish.station}
                   </span>
                 </div>
-                <p className="text-[10px] text-zinc-400">{dish.category}</p>
               </div>
 
               <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/10">
-                <span className="text-sm font-extrabold text-emerald-400">${dish.price.toFixed(2)}</span>
+                <span className="text-sm font-extrabold text-emerald-400">
+                  ${dish.basePrice.toFixed(2)}
+                </span>
                 <button
                   onClick={() => addToCart(dish)}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-600/30 flex items-center gap-1 transition-all"
+                  disabled={!dish.isAvailable}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-600/30 flex items-center gap-1 transition-all"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Item</span>
@@ -177,7 +488,7 @@ export default function PosPage() {
         </div>
       </div>
 
-      {/* Right Column: Order Bill Cart */}
+      {/* Right Column: Order Cart */}
       <div className="w-96 glass-panel p-5 rounded-2xl border border-white/10 flex flex-col justify-between">
         <div>
           {/* Cart Header */}
@@ -187,7 +498,10 @@ export default function PosPage() {
                 <Receipt className="w-4 h-4 text-blue-400" />
                 <span>Active Order Cart</span>
               </h2>
-              <p className="text-[10px] text-zinc-400">Assigned to Table {selectedTable}</p>
+              <p className="text-[10px] text-zinc-400">
+                Table {selectedTable?.tableNumber ?? '-'}
+                {orderNumber && <span className="text-blue-400"> · {orderNumber}</span>}
+              </p>
             </div>
             <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
               DINE_IN
@@ -195,36 +509,51 @@ export default function PosPage() {
           </div>
 
           {/* Cart Items List */}
-          <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
             {cart.length === 0 ? (
               <p className="text-xs text-zinc-500 text-center py-8">Cart is empty. Tap menu items to add.</p>
             ) : (
-              cart.map((item) => (
+              cart.map((item, idx) => (
                 <div
-                  key={item.dish.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5"
+                  key={`${item.menuItem.id}-${idx}`}
+                  className={`flex items-center justify-between p-3 rounded-xl border ${
+                    item.isSentToKitchen
+                      ? 'bg-blue-500/10 border-blue-500/20'
+                      : 'bg-white/5 border-white/5'
+                  }`}
                 >
                   <div className="flex-1 pr-2">
-                    <p className="text-xs font-semibold text-white leading-tight">{item.dish.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-white leading-tight">{item.menuItem.name}</p>
+                      {item.isSentToKitchen && (
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-400/30 flex items-center gap-0.5">
+                          <ChefHat className="w-2.5 h-2.5" /> Fired
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-emerald-400 mt-0.5">
-                      ${(item.dish.price * item.quantity).toFixed(2)}
+                      ${(item.menuItem.basePrice * item.quantity).toFixed(2)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateQuantity(item.dish.id, -1)}
-                      className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-300"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="text-xs font-bold text-white w-4 text-center">{item.quantity}</span>
-                    <button
-                      onClick={() => addToCart(item.dish)}
-                      className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-300"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
+                  {!item.isSentToKitchen ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateQuantity(item.menuItem.id, -1)}
+                        className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-300"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="text-xs font-bold text-white w-4 text-center">{item.quantity}</span>
+                      <button
+                        onClick={() => addToCart(item.menuItem)}
+                        className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-300"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-bold text-zinc-400">{item.quantity}x</span>
+                  )}
                 </div>
               ))
             )}
@@ -272,25 +601,149 @@ export default function PosPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-2">
+          {actionError && (
+            <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
+              {actionError}
+            </div>
+          )}
+
+          {actionSuccess && (
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px]">
+              {actionSuccess}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               onClick={() => setShowCheckoutModal(true)}
-              className="py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center gap-1.5 transition-all"
+              disabled={cart.length === 0 || placingOrder}
+              className="py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center gap-1.5 transition-all"
             >
               <CreditCard className="w-4 h-4" />
               <span>Settle Payment</span>
             </button>
 
             <button
-              onClick={() => setShowReceiptModal(true)}
-              className="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs border border-white/10 flex items-center justify-center gap-1.5 transition-all"
+              onClick={submitOrder}
+              disabled={cart.length === 0 || placingOrder || (!hasUnsentItems && !!orderId)}
+              className="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white font-bold text-xs border border-white/10 flex items-center justify-center gap-1.5 transition-all"
             >
-              <Printer className="w-4 h-4" />
-              <span>Print Receipt</span>
+              {placingOrder ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              <span>{orderId ? (hasUnsentItems ? 'Send New Items' : 'Sent to Kitchen') : 'Send to Kitchen'}</span>
             </button>
           </div>
+
+          {/* Manager Void & Refund Override Section */}
+          {isManager && orderId && (
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+              <button
+                onClick={() => setModalMode('VOID')}
+                className="py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 font-semibold text-[11px] flex items-center justify-center gap-1 transition-all"
+              >
+                <Ban className="w-3.5 h-3.5" />
+                <span>Void Order</span>
+              </button>
+
+              <button
+                onClick={() => setModalMode('REFUND')}
+                className="py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 font-semibold text-[11px] flex items-center justify-center gap-1 transition-all"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Issue Refund</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Manager Action Modal (Void / Refund) */}
+      <AnimatePresence>
+        {modalMode && (
+          <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-panel p-6 rounded-3xl border border-white/15 max-w-md w-full shadow-2xl relative"
+            >
+              <button
+                onClick={() => {
+                  setModalMode(null);
+                  setManagerReason('');
+                  setManagerError('');
+                }}
+                className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center mb-6">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-2 border ${
+                  modalMode === 'VOID'
+                    ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                }`}>
+                  {modalMode === 'VOID' ? <Ban className="w-6 h-6" /> : <RotateCcw className="w-6 h-6" />}
+                </div>
+                <h3 className="text-lg font-bold text-white">{modalMode === 'VOID' ? 'Void' : 'Refund'} Order #{orderNumber}</h3>
+                <p className="text-xs text-zinc-400">
+                  Restores ingredient stock, updates status to {modalMode === 'VOID' ? 'CANCELLED' : 'REFUNDED'}, and writes an audit log.
+                </p>
+              </div>
+
+              <form onSubmit={handleManagerActionSubmit} className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-zinc-300 block mb-1">
+                    Reason (Required) <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    autoFocus
+                    required
+                    value={managerReason}
+                    onChange={(e) => setManagerReason(e.target.value)}
+                    placeholder="e.g. Customer changed mind / Billing error"
+                    className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500/50"
+                  />
+                </div>
+
+                {managerError && (
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
+                    {managerError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModalMode(null);
+                      setManagerReason('');
+                      setManagerError('');
+                    }}
+                    className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs border border-white/10"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={managerSubmitting || !managerReason.trim()}
+                    className={`py-2.5 rounded-xl text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 transition-all ${
+                      modalMode === 'VOID'
+                        ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30'
+                        : 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30'
+                    }`}
+                  >
+                    {managerSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>Confirm {modalMode === 'VOID' ? 'Void' : 'Refund'}</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Payment Settlement Modal */}
       <AnimatePresence>
@@ -314,21 +767,23 @@ export default function PosPage() {
                   <CreditCard className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg font-bold text-white">Settle Payment</h3>
-                <p className="text-xs text-zinc-400">Select payment method for Table {selectedTable}</p>
+                <p className="text-xs text-zinc-400">
+                  Select payment method for Table {selectedTable?.tableNumber ?? '-'}
+                </p>
               </div>
 
               <div className="space-y-3 mb-6">
                 {['APPLE_PAY', 'CREDIT_CARD', 'CASH', 'GIFT_CARD'].map((pm) => (
                   <button
                     key={pm}
-                    onClick={() => {
-                      setShowCheckoutModal(false);
-                      setShowReceiptModal(true);
-                    }}
-                    className="w-full p-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white flex items-center justify-between transition-colors"
+                    onClick={() => settlePayment(pm)}
+                    disabled={settling}
+                    className="w-full p-3.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40 border border-white/10 text-xs font-semibold text-white flex items-center justify-between transition-colors"
                   >
                     <span>{pm.replace('_', ' ')}</span>
-                    <span className="text-emerald-400 font-bold">${total.toFixed(2)}</span>
+                    <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                      {settling && <Loader2 className="w-3 h-3 animate-spin" />}${total.toFixed(2)}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -348,7 +803,7 @@ export default function PosPage() {
               className="bg-white text-zinc-900 p-6 rounded-2xl max-w-sm w-full font-mono text-xs shadow-2xl relative"
             >
               <button
-                onClick={() => setShowReceiptModal(false)}
+                onClick={resetOrder}
                 className="absolute top-3 right-3 text-zinc-500 hover:text-black font-sans font-bold"
               >
                 ✕
@@ -361,16 +816,18 @@ export default function PosPage() {
               </div>
 
               <div className="space-y-1 mb-4 text-[11px]">
-                <p>Order: #ORD-{Date.now().toString().slice(-6)}</p>
-                <p>Table: {selectedTable} | Staff: Waiter Lucas</p>
+                <p>Order: #{orderNumber ?? 'N/A'}</p>
+                <p>Table: {selectedTable?.tableNumber ?? '-'}</p>
                 <p>Date: {new Date().toLocaleString()}</p>
               </div>
 
               <div className="space-y-2 py-3 border-y border-dashed border-zinc-400 mb-4 text-[11px]">
-                {cart.map((item) => (
-                  <div key={item.dish.id} className="flex justify-between">
-                    <span>{item.quantity}x {item.dish.name}</span>
-                    <span>${(item.dish.price * item.quantity).toFixed(2)}</span>
+                {cart.map((item, idx) => (
+                  <div key={`${item.menuItem.id}-${idx}`} className="flex justify-between">
+                    <span>
+                      {item.quantity}x {item.menuItem.name}
+                    </span>
+                    <span>${(item.menuItem.basePrice * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -383,7 +840,7 @@ export default function PosPage() {
               </div>
 
               <div className="text-center pt-4 border-t border-dashed border-zinc-400 mt-4 text-[10px] text-zinc-600">
-                <p>Thank you for dining at Aura!</p>
+                <p>Payment confirmed — inventory auto-deducted.</p>
                 <p>*** Merchant Copy ***</p>
               </div>
             </motion.div>

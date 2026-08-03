@@ -2,14 +2,15 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAuthToken } from '@/lib/api';
 
 export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem('erms_access_token');
+    const token = getAuthToken();
     if (token) {
-      router.push('/dashboard');
+      router.push('/my-attendance');
     } else {
       router.push('/login');
     }
