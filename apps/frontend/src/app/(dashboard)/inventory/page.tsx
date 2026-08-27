@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Package, AlertTriangle, Truck, PlusCircle, Loader2, AlertCircle, RefreshCw, X, CheckCircle2 } from 'lucide-react';
 import { api, getAuthUser } from '@/lib/api';
 
+import { useLocale } from '@/contexts/LocaleContext';
+
 interface Ingredient {
   id: string;
   name: string;
@@ -26,6 +28,7 @@ interface PurchaseOrder {
 const POLL_INTERVAL_MS = 10000;
 
 export default function InventoryPage() {
+  const { t } = useLocale();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,14 +60,14 @@ export default function InventoryPage() {
         setLoadError('');
       } catch (err: any) {
         setLoadError(
-          err.response?.data?.message || 'Failed to connect to backend service.'
+          err.response?.data?.message || t.common.error
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [branchId]
+    [branchId, t]
   );
 
   useEffect(() => {
@@ -83,7 +86,7 @@ export default function InventoryPage() {
     if (!restockTarget) return;
     const qty = parseFloat(restockQty);
     if (!qty || qty <= 0) {
-      setRestockError('Please enter a valid restock quantity');
+      setRestockError(t.inventory.restockModal.qtyLabel);
       return;
     }
     setRestocking(true);
@@ -94,7 +97,7 @@ export default function InventoryPage() {
       setRestockQty('');
       await fetchData(true);
     } catch (err: any) {
-      setRestockError(err.response?.data?.message || 'Restock failed.');
+      setRestockError(err.response?.data?.message || t.common.error);
     } finally {
       setRestocking(false);
     }
@@ -116,7 +119,7 @@ export default function InventoryPage() {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading inventory & procurement ledger...</span>
+        <span>{t.inventory.loadingInventory}</span>
       </div>
     );
   }
@@ -126,7 +129,7 @@ export default function InventoryPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">Failed to load inventory data</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.common.error}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -137,15 +140,15 @@ export default function InventoryPage() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Inventory & Procurement Ledger</h1>
-          <p className="text-xs text-zinc-400 mt-1">Real-time Stock Ledger with Automated Recipe Deduction & Purchase Orders</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.inventory.title}</h1>
+          <p className="text-xs text-zinc-400 mt-1">{t.inventory.subtitle}</p>
         </div>
         <button
           onClick={() => fetchData(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20 transition-all"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
+          <span>{t.common.refresh}</span>
         </button>
       </div>
 
@@ -157,10 +160,10 @@ export default function InventoryPage() {
             </div>
             <div>
               <h3 className="text-xs font-bold text-amber-300">
-                {lowStock.length} Ingredient{lowStock.length > 1 ? 's' : ''} Require{lowStock.length === 1 ? 's' : ''} Reordering
+                {t.inventory.alertLowStock.replace('{count}', String(lowStock.length))}
               </h3>
               <p className="text-[11px] text-zinc-400">
-                {lowStock.map((i) => i.name).join(', ')} {lowStock.length === 1 ? 'is' : 'are'} at or below minimum threshold.
+                {t.inventoryDetail.lowStockNames.replace('{names}', lowStock.map((i) => i.name).join(', '))}
               </p>
             </div>
           </div>
@@ -171,19 +174,19 @@ export default function InventoryPage() {
       <div className="glass-panel p-6 rounded-2xl border border-white/10">
         <div className="flex items-center gap-2 mb-4">
           <Package className="w-5 h-5 text-blue-400" />
-          <h2 className="text-base font-semibold text-white">Ingredient Stock Levels</h2>
+          <h2 className="text-base font-semibold text-white">{t.inventory.title}</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Ingredient Name</th>
-                <th className="py-3 px-4">SKU</th>
-                <th className="py-3 px-4">Current Stock</th>
-                <th className="py-3 px-4">Min Threshold</th>
-                <th className="py-3 px-4">Cost / Unit</th>
-                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">{t.inventory.ingredientName}</th>
+                <th className="py-3 px-4">{t.inventory.sku}</th>
+                <th className="py-3 px-4">{t.inventory.currentStock}</th>
+                <th className="py-3 px-4">{t.inventory.minThreshold}</th>
+                <th className="py-3 px-4">{t.inventory.costPerUnit}</th>
+                <th className="py-3 px-4">{t.inventory.status}</th>
                 <th className="py-3 px-4"></th>
               </tr>
             </thead>
@@ -204,11 +207,11 @@ export default function InventoryPage() {
                     <td className="py-3.5 px-4">
                       {isLow ? (
                         <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold">
-                          LOW STOCK
+                          {t.inventory.lowStockBadge}
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                          IN STOCK
+                          {t.inventory.inStockBadge}
                         </span>
                       )}
                     </td>
@@ -222,7 +225,7 @@ export default function InventoryPage() {
                         className="flex items-center gap-1 text-[11px] font-semibold text-blue-400 hover:text-blue-300"
                       >
                         <PlusCircle className="w-3.5 h-3.5" />
-                        <span>Restock</span>
+                        <span>{t.inventory.restockButton}</span>
                       </button>
                     </td>
                   </tr>
@@ -237,7 +240,7 @@ export default function InventoryPage() {
       <div className="glass-panel p-6 rounded-2xl border border-white/10">
         <div className="flex items-center gap-2 mb-4">
           <Truck className="w-5 h-5 text-purple-400" />
-          <h2 className="text-base font-semibold text-white">Purchase Orders & Stock Ingestion</h2>
+          <h2 className="text-base font-semibold text-white">{t.inventory.poTitle}</h2>
         </div>
 
         <div className="space-y-3">
@@ -251,7 +254,7 @@ export default function InventoryPage() {
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                       : 'bg-purple-500/20 text-purple-300 border-purple-500/30'
                   }`}>
-                    {po.status}
+                    {(t.inventory.poStatus as any)[po.status] || po.status}
                   </span>
                 </div>
                 <p className="text-xs font-medium text-white mt-1">{po.supplier?.name}</p>
@@ -261,7 +264,7 @@ export default function InventoryPage() {
                 <div className="text-right">
                   <p className="text-xs font-bold text-emerald-400">${po.totalCost.toFixed(2)}</p>
                   <p className="text-[10px] text-zinc-400">
-                    {po.expectedDate ? `Expected: ${new Date(po.expectedDate).toLocaleDateString()}` : 'No ETA set'}
+                    {po.expectedDate ? t.inventoryDetail.poExpectedDate.replace('{date}', new Date(po.expectedDate).toLocaleDateString()) : t.inventoryDetail.poNoETA}
                   </p>
                 </div>
 
@@ -272,19 +275,19 @@ export default function InventoryPage() {
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-600/30 flex items-center gap-1 transition-all"
                   >
                     {receivingPoId === po.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                    <span>Receive PO Stock</span>
+                    <span>{t.inventory.receiveStock}</span>
                   </button>
                 ) : (
                   <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Stock Ingested</span>
+                    <span>{t.inventory.stockReceived}</span>
                   </span>
                 )}
               </div>
             </div>
           ))}
           {purchaseOrders.length === 0 && (
-            <p className="text-xs text-zinc-500 text-center py-6">No active purchase orders.</p>
+            <p className="text-xs text-zinc-500 text-center py-6">{t.inventory.noPurchaseOrders}</p>
           )}
         </div>
       </div>
@@ -293,17 +296,17 @@ export default function InventoryPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="glass-panel rounded-2xl border border-white/10 max-w-sm w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-white">Restock {restockTarget.name}</h2>
+              <h2 className="text-base font-semibold text-white">{t.inventory.restockModal.title} {restockTarget.name}</h2>
               <button onClick={() => setRestockTarget(null)} className="text-zinc-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <p className="text-[11px] text-zinc-400 mb-3">
-              Current stock: {restockTarget.currentStock} {restockTarget.unit}
+              {t.inventory.restockModal.currentStock}: {restockTarget.currentStock} {restockTarget.unit}
             </p>
             <form onSubmit={handleRestock} className="space-y-3">
               <div>
-                <label className="text-[11px] text-zinc-400 font-medium">Quantity to Add ({restockTarget.unit})</label>
+                <label className="text-[11px] text-zinc-400 font-medium">{t.inventory.restockModal.qtyLabel} ({restockTarget.unit})</label>
                 <input
                   type="number"
                   step="0.01"
@@ -321,7 +324,7 @@ export default function InventoryPage() {
                 className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all"
               >
                 {restocking && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>{restocking ? 'Restocking...' : 'Confirm Restock'}</span>
+                <span>{restocking ? t.inventory.restockModal.saving : t.inventory.restockModal.confirm}</span>
               </button>
             </form>
           </div>
@@ -330,3 +333,4 @@ export default function InventoryPage() {
     </div>
   );
 }
+

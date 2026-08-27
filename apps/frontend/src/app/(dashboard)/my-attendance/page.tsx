@@ -41,7 +41,10 @@ interface EmployeeMe {
   }>;
 }
 
+import { useLocale } from '@/contexts/LocaleContext';
+
 export default function MyAttendancePage() {
+  const { t } = useLocale();
   const [employee, setEmployee] = useState<EmployeeMe | null>(null);
   const [weeklyAttendance, setWeeklyAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,14 +68,14 @@ export default function MyAttendancePage() {
           setWeeklyAttendance(attRes.data?.attendance || []);
         }
       } else {
-        setErrorMsg('No employee workforce record linked to current account.');
+        setErrorMsg(t.myAttendance.errorLoad);
       }
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Failed to load employee attendance details.');
+      setErrorMsg(err.response?.data?.message || t.myAttendance.errorLoad);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchMyAttendance();
@@ -99,10 +102,10 @@ export default function MyAttendancePage() {
     try {
       if (confirmMode === 'CLOCK_OUT') {
         await api.post(`/employees/${employee.id}/clock-out`);
-        setSuccessMsg('Successfully clocked out of shift!');
+        setSuccessMsg(t.myAttendance.successClockOut);
       } else {
         await api.post(`/employees/${employee.id}/clock-in`);
-        setSuccessMsg('Successfully clocked in for shift!');
+        setSuccessMsg(t.myAttendance.successClockIn);
       }
 
       await fetchMyAttendance();
@@ -112,7 +115,7 @@ export default function MyAttendancePage() {
         setPendingTime(null);
       }, 1500);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || 'Shift attendance action failed.');
+      setErrorMsg(err.response?.data?.message || t.errors.serverError);
     } finally {
       setBusy(false);
     }
@@ -134,7 +137,7 @@ export default function MyAttendancePage() {
         <div className="w-10 h-10 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
           <Loader2 className="w-5 h-5 animate-spin" />
         </div>
-        <span>Loading My Shift Attendance & Weekly Log...</span>
+        <span>{t.myAttendanceDetail.loadingText}</span>
       </div>
     );
   }
@@ -146,9 +149,9 @@ export default function MyAttendancePage() {
           <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-white">Workforce Profile Not Found</h2>
+          <h2 className="text-xl font-bold text-white">{t.myAttendanceDetail.profileNotFound}</h2>
           <p className="text-xs text-zinc-400 max-w-md mx-auto">
-            Your logged-in user account ({getAuthUser()?.email}) is an administrative or non-branch account and is not registered as a branch employee.
+            {t.myAttendanceDetail.profileNotFoundDesc.replace('{email}', getAuthUser()?.email || '')}
           </p>
         </div>
       </div>
@@ -161,13 +164,13 @@ export default function MyAttendancePage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-white tracking-tight">My Shift Attendance</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">{t.myAttendance.title}</h1>
             <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-semibold">
-              Weekly Attendance & Check-In Log
+              {t.myAttendanceDetail.badgeWeekly}
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Real-time shift check-in, check-out confirmation, and weekly timesheet history.
+            {t.myAttendanceDetail.subtitleFull}
           </p>
         </div>
 
@@ -176,12 +179,12 @@ export default function MyAttendancePage() {
           {isClockedIn ? (
             <div className="px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-2 text-xs font-bold shadow-lg shadow-emerald-500/10">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>ACTIVE SHIFT — CLOCKED IN</span>
+              <span>{t.myAttendanceDetail.badgeClockedIn}</span>
             </div>
           ) : (
             <div className="px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center gap-2 text-xs font-bold">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-              <span>OFF DUTY</span>
+              <span>{t.myAttendanceDetail.badgeOffDuty}</span>
             </div>
           )}
         </div>
@@ -202,7 +205,7 @@ export default function MyAttendancePage() {
                 </h2>
                 <div className="flex items-center gap-2 mt-0.5 text-xs">
                   <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-400/30 font-semibold text-[10px]">
-                    {employee.user?.role}
+                    {(t.employees.roles as any)[employee.user?.role] || employee.user?.role}
                   </span>
                   <span className="text-zinc-400 font-medium">{employee.jobTitle}</span>
                 </div>
@@ -210,7 +213,7 @@ export default function MyAttendancePage() {
             </div>
 
             <div className="text-right">
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">Hourly Rate</span>
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">{t.myAttendance.hourlyRate}</span>
               <span className="text-lg font-bold text-emerald-400">${employee.hourlyRate.toFixed(2)} / hr</span>
             </div>
           </div>
@@ -220,9 +223,9 @@ export default function MyAttendancePage() {
             <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-bold text-white">Perform Shift Punch Action</h3>
+                  <h3 className="text-sm font-bold text-white">{t.myAttendanceDetail.cardTitle}</h3>
                   <p className="text-xs text-zinc-400">
-                    Clicking will trigger a confirmation step with your exact real-time timestamp.
+                    {t.myAttendanceDetail.cardSubtitle}
                   </p>
                 </div>
 
@@ -237,12 +240,12 @@ export default function MyAttendancePage() {
                   {isClockedIn ? (
                     <>
                       <LogOut className="w-4 h-4" />
-                      <span>Clock Out of Shift</span>
+                      <span>{t.myAttendanceDetail.btnClockOut}</span>
                     </>
                   ) : (
                     <>
                       <LogIn className="w-4 h-4" />
-                      <span>Clock In for Shift</span>
+                      <span>{t.myAttendanceDetail.btnClockIn}</span>
                     </>
                   )}
                 </button>
@@ -251,7 +254,7 @@ export default function MyAttendancePage() {
               {/* Explicit Check-In and Check-Out Time Display */}
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/10">
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                  <span className="text-[10px] text-zinc-400 font-semibold uppercase block">Current Shift Check-In Time</span>
+                  <span className="text-[10px] text-zinc-400 font-semibold uppercase block">{t.myAttendanceDetail.currentClockInLabel}</span>
                   {latestAtt?.clockIn ? (
                     <div>
                       <p className="font-bold text-emerald-400 text-sm">
@@ -262,12 +265,12 @@ export default function MyAttendancePage() {
                       </p>
                     </div>
                   ) : (
-                    <p className="text-zinc-500 text-xs italic">Not Checked In Yet</p>
+                    <p className="text-zinc-500 text-xs italic">{t.myAttendanceDetail.notCheckedIn}</p>
                   )}
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                  <span className="text-[10px] text-zinc-400 font-semibold uppercase block">Current Shift Check-Out Time</span>
+                  <span className="text-[10px] text-zinc-400 font-semibold uppercase block">{t.myAttendanceDetail.currentClockOutLabel}</span>
                   {latestAtt?.clockOut ? (
                     <div>
                       <p className="font-bold text-zinc-300 text-sm">
@@ -278,9 +281,9 @@ export default function MyAttendancePage() {
                       </p>
                     </div>
                   ) : isClockedIn ? (
-                    <p className="text-blue-400 text-xs font-semibold">Active Shift in Progress</p>
+                    <p className="text-blue-400 text-xs font-semibold">{t.myAttendanceDetail.activeShiftProgress}</p>
                   ) : (
-                    <p className="text-zinc-500 text-xs italic">No Active Shift</p>
+                    <p className="text-zinc-500 text-xs italic">{t.myAttendanceDetail.noActiveShift}</p>
                   )}
                 </div>
               </div>
@@ -291,19 +294,19 @@ export default function MyAttendancePage() {
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm font-bold text-white">
-                  Confirm {confirmMode === 'CLOCK_IN' ? 'Shift Check-In' : 'Shift Check-Out'}
+                  {confirmMode === 'CLOCK_IN' ? t.myAttendanceDetail.confirmClockInTitle : t.myAttendanceDetail.confirmClockOutTitle}
                 </h3>
               </div>
 
               <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-zinc-400">Target Action:</p>
+                  <p className="text-xs text-zinc-400">{t.myAttendanceDetail.targetAction}</p>
                   <p className="text-sm font-bold text-white">
-                    {confirmMode === 'CLOCK_IN' ? 'Clock In for Shift' : 'Clock Out of Shift'}
+                    {confirmMode === 'CLOCK_IN' ? t.myAttendanceDetail.btnClockIn : t.myAttendanceDetail.btnClockOut}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-zinc-400">Exact Actual Time:</p>
+                  <p className="text-xs text-zinc-400">{t.myAttendanceDetail.exactTime}</p>
                   <p className="font-mono font-bold text-emerald-400 text-lg">
                     {pendingTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </p>
@@ -323,7 +326,7 @@ export default function MyAttendancePage() {
                   ) : (
                     <CheckCircle2 className="w-4 h-4" />
                   )}
-                  <span>Confirm & Record Actual Time</span>
+                  <span>{t.myAttendanceDetail.btnConfirmRecord}</span>
                 </button>
 
                 <button
@@ -332,7 +335,7 @@ export default function MyAttendancePage() {
                   className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 text-xs font-semibold flex items-center gap-1 transition-all"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  <span>Cancel</span>
+                  <span>{t.common.cancel}</span>
                 </button>
               </div>
             </div>
@@ -357,24 +360,24 @@ export default function MyAttendancePage() {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-blue-400" />
-              <span>Weekly Shift Summary</span>
+              <span>{t.myAttendanceDetail.weeklySummaryTitle}</span>
             </h3>
 
             <div className="space-y-3">
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
-                <span className="text-xs text-zinc-400">Total Hours Worked</span>
+                <span className="text-xs text-zinc-400">{t.myAttendanceDetail.metricTotalHours}</span>
                 <span className="text-base font-bold text-blue-400">{totalWeeklyHours.toFixed(2)} hrs</span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
-                <span className="text-xs text-zinc-400">Est. Weekly Gross Pay</span>
+                <span className="text-xs text-zinc-400">{t.myAttendanceDetail.metricEstPay}</span>
                 <span className="text-base font-bold text-emerald-400">${estimatedWeeklyEarnings.toFixed(2)}</span>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
-                <span className="text-xs text-zinc-400">Completed Sessions</span>
+                <span className="text-xs text-zinc-400">{t.myAttendanceDetail.metricSessions}</span>
                 <span className="text-base font-bold text-purple-300">
-                  {weeklyAttendance.filter(a => a.clockOut).length} shifts
+                  {t.myAttendanceDetail.sessionsUnit.replace('{x}', String(weeklyAttendance.filter(a => a.clockOut).length))}
                 </span>
               </div>
             </div>
@@ -382,7 +385,7 @@ export default function MyAttendancePage() {
 
           <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-300 flex items-center gap-2">
             <UserCheck className="w-4 h-4 text-blue-400 shrink-0" />
-            <span>Attendance records are synced to manager payroll audit logs.</span>
+            <span>{t.myAttendanceDetail.syncNote}</span>
           </div>
         </div>
       </div>
@@ -391,12 +394,12 @@ export default function MyAttendancePage() {
       <div className="glass-panel p-6 rounded-3xl border border-white/10 space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h3 className="text-base font-bold text-white">Daily Check-In & Check-Out Times for the Week</h3>
-            <p className="text-xs text-zinc-400">Detailed breakdown of check-in, check-out, and total hours worked per session.</p>
+            <h3 className="text-base font-bold text-white">{t.myAttendanceDetail.tableTitle}</h3>
+            <p className="text-xs text-zinc-400">{t.myAttendanceDetail.tableSubtitle}</p>
           </div>
           <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300 text-xs font-semibold flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-blue-400" />
-            <span>Active Pay Period</span>
+            <span>{t.myAttendanceDetail.badgePayPeriod}</span>
           </span>
         </div>
 
@@ -404,12 +407,12 @@ export default function MyAttendancePage() {
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Check-In Time</th>
-                <th className="py-3 px-4">Check-Out Time</th>
-                <th className="py-3 px-4">Hours Worked</th>
-                <th className="py-3 px-4">Est. Session Pay</th>
-                <th className="py-3 px-4">Shift Status</th>
+                <th className="py-3 px-4">{t.myAttendanceDetail.colDate}</th>
+                <th className="py-3 px-4">{t.myAttendanceDetail.colClockIn}</th>
+                <th className="py-3 px-4">{t.myAttendanceDetail.colClockOut}</th>
+                <th className="py-3 px-4">{t.myAttendanceDetail.colHours}</th>
+                <th className="py-3 px-4">{t.myAttendanceDetail.colEstPay}</th>
+                <th className="py-3 px-4">{t.myAttendanceDetail.colStatus}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -431,7 +434,7 @@ export default function MyAttendancePage() {
                       {clockOutDate ? clockOutDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-blue-400">
-                      {att.clockOut ? `${hours.toFixed(2)} hrs` : 'In Progress'}
+                      {att.clockOut ? `${hours.toFixed(2)} hrs` : t.myAttendanceDetail.badgeInProgress}
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-emerald-300">
                       {att.clockOut ? `$${pay.toFixed(2)}` : '—'}
@@ -439,11 +442,11 @@ export default function MyAttendancePage() {
                     <td className="py-3.5 px-4">
                       {!att.clockOut ? (
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                          ● ACTIVE SHIFT
+                          {t.myAttendanceDetail.badgeActiveShift}
                         </span>
                       ) : (
                         <span className="px-2.5 py-0.5 rounded-full bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 text-[10px] font-bold">
-                          COMPLETED
+                          {t.myAttendanceDetail.badgeCompleted}
                         </span>
                       )}
                     </td>
@@ -454,7 +457,7 @@ export default function MyAttendancePage() {
               {weeklyAttendance.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-zinc-500">
-                    No shift attendance records logged for the active week.
+                    {t.myAttendanceDetail.emptyWeek}
                   </td>
                 </tr>
               )}
@@ -465,3 +468,4 @@ export default function MyAttendancePage() {
     </div>
   );
 }
+

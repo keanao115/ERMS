@@ -4,7 +4,10 @@ import React, { useEffect, useState } from 'react';
 import { Building, CreditCard, Save, CheckCircle2, Lock, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 import { api, getAuthUser } from '@/lib/api';
 
+import { useLocale } from '@/contexts/LocaleContext';
+
 export default function SettingsPage() {
+  const { t } = useLocale();
   const [user, setUser] = useState<any>(null);
   const [restaurant, setRestaurant] = useState<any>({ name: '', taxRegistrationNumber: '' });
   const [branch, setBranch] = useState<any>({ name: '', address: '', city: '', phone: '', capacity: 120 });
@@ -46,12 +49,12 @@ export default function SettingsPage() {
       if (managerOrAdmin) {
         const anyFailed = [restResult, branchResult, adaptersResult].some((r) => r.status === 'rejected');
         if (anyFailed) {
-          setApiError('Failed to load some organization settings from server. Please verify backend service connectivity.');
+          setApiError(t.settings.errorLoadSome);
         }
       }
     } catch (err: any) {
       console.error('Failed to load settings:', err);
-      setApiError('Failed to load organization settings from server. Please verify backend service connectivity.');
+      setApiError(t.settings.errorLoad);
     } finally {
       setLoading(false);
     }
@@ -60,7 +63,6 @@ export default function SettingsPage() {
   useEffect(() => {
     loadSettings();
   }, []);
-
 
   const isManager = user?.role === 'SUPER_ADMIN' || user?.role === 'RESTAURANT_OWNER' || user?.role === 'STORE_MANAGER' || user?.role === 'REGIONAL_MANAGER';
 
@@ -93,7 +95,7 @@ export default function SettingsPage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      setApiError(err.response?.data?.message || 'Failed to save settings. Requires Manager permissions.');
+      setApiError(err.response?.data?.message || t.settings.errorSave);
     } finally {
       setSaving(false);
     }
@@ -104,7 +106,7 @@ export default function SettingsPage() {
     if (status === 'NOT_CONFIGURED') {
       return (
         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-500/20 text-zinc-400 border border-zinc-500/30">
-          NOT_CONFIGURED
+          {t.settings.adaptersCard.statusNotConfigured}
         </span>
       );
     }
@@ -119,8 +121,8 @@ export default function SettingsPage() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Enterprise Organization Settings</h1>
-          <p className="text-xs text-zinc-400 mt-1">Multi-Branch Setup, Tax Rules, Payment Gateways & Telemetry Adapters</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.settings.title}</h1>
+          <p className="text-xs text-zinc-400 mt-1">{t.settings.subtitle}</p>
         </div>
 
         {isManager ? (
@@ -130,12 +132,12 @@ export default function SettingsPage() {
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
-            <span>{saving ? 'Saving Changes...' : 'Save Enterprise Settings'}</span>
+            <span>{saving ? t.settings.savingButton : t.settings.saveButton}</span>
           </button>
         ) : (
           <span className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-1.5">
             <Lock className="w-3.5 h-3.5" />
-            <span>Read-Only Mode (Manager Access Required)</span>
+            <span>{t.settings.readOnlyBadge}</span>
           </span>
         )}
       </div>
@@ -151,7 +153,7 @@ export default function SettingsPage() {
             className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-white font-medium flex items-center gap-1 text-[11px] transition-colors"
           >
             <RefreshCw className="w-3 h-3" />
-            <span>Retry</span>
+            <span>{t.common.retry}</span>
           </button>
         </div>
       )}
@@ -159,7 +161,7 @@ export default function SettingsPage() {
       {saveSuccess && (
         <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>Enterprise organization and branch configuration saved successfully!</span>
+          <span>{t.settings.saveSuccess}</span>
         </div>
       )}
 
@@ -169,16 +171,16 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Building className="w-5 h-5 text-blue-400" />
-              <h2 className="text-sm font-semibold text-white">Enterprise Organization Details</h2>
+              <h2 className="text-sm font-semibold text-white">{t.settings.orgCard.title}</h2>
             </div>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
-              REST API
+              {t.settings.orgCard.badge}
             </span>
           </div>
 
           <div className="space-y-3 text-xs">
             <div>
-              <label className="text-zinc-400 block mb-1">Enterprise Name</label>
+              <label className="text-zinc-400 block mb-1">{t.settings.orgCard.nameLabel}</label>
               <input
                 type="text"
                 disabled={!isManager || loading}
@@ -189,7 +191,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="text-zinc-400 block mb-1">Tax Registration Number</label>
+              <label className="text-zinc-400 block mb-1">{t.settings.orgCard.taxLabel}</label>
               <input
                 type="text"
                 disabled={!isManager || loading}
@@ -206,16 +208,16 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-400" />
-              <h2 className="text-sm font-semibold text-white">Active Branch Settings</h2>
+              <h2 className="text-sm font-semibold text-white">{t.settings.branchCard.title}</h2>
             </div>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30">
-              REST API
+              {t.settings.branchCard.badge}
             </span>
           </div>
 
           <div className="space-y-3 text-xs">
             <div>
-              <label className="text-zinc-400 block mb-1">Branch Name</label>
+              <label className="text-zinc-400 block mb-1">{t.settings.branchCard.nameLabel}</label>
               <input
                 type="text"
                 disabled={!isManager || loading}
@@ -227,7 +229,7 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-zinc-400 block mb-1">City / Location</label>
+                <label className="text-zinc-400 block mb-1">{t.settings.branchCard.cityLabel}</label>
                 <input
                   type="text"
                   disabled={!isManager || loading}
@@ -238,7 +240,7 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="text-zinc-400 block mb-1">Seating Capacity</label>
+                <label className="text-zinc-400 block mb-1">{t.settings.branchCard.capacityLabel}</label>
                 <input
                   type="number"
                   disabled={!isManager || loading}
@@ -250,7 +252,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="text-zinc-400 block mb-1">Address</label>
+              <label className="text-zinc-400 block mb-1">{t.settings.branchCard.addressLabel}</label>
               <input
                 type="text"
                 disabled={!isManager || loading}
@@ -267,35 +269,36 @@ export default function SettingsPage() {
       <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
         <div className="flex items-center gap-2">
           <CreditCard className="w-5 h-5 text-emerald-400" />
-          <h2 className="text-sm font-semibold text-white">Integration Adapters & Gateway Services</h2>
+          <h2 className="text-sm font-semibold text-white">{t.settings.adaptersCard.title}</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-white">Stripe Payment Gateway</span>
+              <span className="font-bold text-white">{t.settings.adaptersCard.stripe.name}</span>
               {renderBadge(adaptersStatus?.stripe)}
             </div>
-            <p className="text-[11px] text-zinc-400">Processes credit card & Apple Pay checkout intents directly in POS checkout.</p>
+            <p className="text-[11px] text-zinc-400">{t.settings.adaptersCard.stripe.desc}</p>
           </div>
 
           <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-white">QuickBooks ERP Sync</span>
+              <span className="font-bold text-white">{t.settings.adaptersCard.quickbooks.name}</span>
               {renderBadge(adaptersStatus?.quickbooks)}
             </div>
-            <p className="text-[11px] text-zinc-400">Automatically dispatches General Ledger entries upon order payment settlement.</p>
+            <p className="text-[11px] text-zinc-400">{t.settings.adaptersCard.quickbooks.desc}</p>
           </div>
 
           <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-white">Uber Eats Delivery Sync</span>
+              <span className="font-bold text-white">{t.settings.adaptersCard.ubereats.name}</span>
               {renderBadge(adaptersStatus?.ubereats)}
             </div>
-            <p className="text-[11px] text-zinc-400">Webhook ingest endpoint for incoming third-party food delivery orders.</p>
+            <p className="text-[11px] text-zinc-400">{t.settings.adaptersCard.ubereats.desc}</p>
           </div>
         </div>
       </div>
     </div>
   );
 }
+

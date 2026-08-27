@@ -20,31 +20,34 @@ import {
   Clock
 } from 'lucide-react';
 
-interface NavItem {
-  label: string;
+import { useLocale } from '@/contexts/LocaleContext';
+
+interface NavItemConfig {
+  key: keyof typeof import('@/locales/zh-TW').default.nav;
   href: string;
   icon: any;
-  badge?: string;
+  badgeKey?: keyof typeof import('@/locales/zh-TW').default.nav;
   managerOnly?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'My Shift Attendance', href: '/my-attendance', icon: Clock },
-  { label: 'Point of Sale', href: '/pos', icon: UtensilsCrossed, badge: 'LIVE' },
-  { label: 'Kitchen KDS', href: '/kds', icon: ChefHat, badge: 'REALTIME' },
-  { label: 'Menu & Recipes', href: '/menu', icon: BookOpen },
-  { label: 'Tables & Floor', href: '/tables', icon: Grid3X3 },
-  { label: 'Reservations', href: '/reservations', icon: Calendar },
-  { label: 'Inventory & POs', href: '/inventory', icon: Package },
-  { label: 'Workforce & Timesheet Management', href: '/employees', icon: Users, managerOnly: true, badge: 'MGR' },
-  { label: 'Financial & Recipe Costing Analytics Engine', href: '/analytics', icon: BarChart3, managerOnly: true, badge: 'MGR' },
-  { label: 'Security Audit Trail & Compliance Log', href: '/audit-logs', icon: ShieldAlert, managerOnly: true, badge: 'MGR' },
-  { label: 'Settings', href: '/settings', icon: Settings },
+const navConfig: NavItemConfig[] = [
+  { key: 'overview', href: '/dashboard', icon: LayoutDashboard },
+  { key: 'myShiftAttendance', href: '/my-attendance', icon: Clock },
+  { key: 'pointOfSale', href: '/pos', icon: UtensilsCrossed, badgeKey: 'badgeLive' },
+  { key: 'kitchenKDS', href: '/kds', icon: ChefHat, badgeKey: 'badgeRealtime' },
+  { key: 'menuRecipes', href: '/menu', icon: BookOpen },
+  { key: 'tablesFloor', href: '/tables', icon: Grid3X3 },
+  { key: 'reservations', href: '/reservations', icon: Calendar },
+  { key: 'inventoryPOs', href: '/inventory', icon: Package },
+  { key: 'workforceTimesheet', href: '/employees', icon: Users, managerOnly: true, badgeKey: 'badgeMgr' },
+  { key: 'analyticsEngine', href: '/analytics', icon: BarChart3, managerOnly: true, badgeKey: 'badgeMgr' },
+  { key: 'securityAuditTrail', href: '/audit-logs', icon: ShieldAlert, managerOnly: true, badgeKey: 'badgeMgr' },
+  { key: 'settings', href: '/settings', icon: Settings },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { t } = useLocale();
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export default function Sidebar() {
 
   const isManagerOrAdmin = userRole === 'STORE_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'RESTAURANT_OWNER' || userRole === 'REGIONAL_MANAGER';
 
-  const visibleNavItems = navItems.filter((item) => {
+  const visibleNavItems = navConfig.filter((item) => {
     if (item.managerOnly && !isManagerOrAdmin) {
       return false;
     }
@@ -79,8 +82,8 @@ export default function Sidebar() {
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="font-semibold tracking-wide text-white text-base">AURA SaaS</h1>
-            <p className="text-[11px] text-zinc-400 font-medium">Enterprise ERMS v1.0</p>
+            <h1 className="font-semibold tracking-wide text-white text-base">{t.brand.name}</h1>
+            <p className="text-[11px] text-zinc-400 font-medium">{t.brand.version}</p>
           </div>
         </div>
 
@@ -89,6 +92,8 @@ export default function Sidebar() {
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const label = (t.nav as any)[item.key] || item.key;
+            const badge = item.badgeKey ? (t.nav as any)[item.badgeKey] : undefined;
 
             return (
               <Link key={item.href} href={item.href}>
@@ -101,11 +106,11 @@ export default function Sidebar() {
                 >
                   <div className="flex items-center gap-2.5 min-w-0 pr-1">
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
-                    <span className="truncate">{item.label}</span>
+                    <span className="truncate">{label}</span>
                   </div>
-                  {item.badge && (
+                  {badge && (
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 shrink-0">
-                      {item.badge}
+                      {badge}
                     </span>
                   )}
                 </div>
@@ -121,8 +126,9 @@ export default function Sidebar() {
         className="flex items-center gap-3 px-3 py-2.5 text-xs font-medium text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
       >
         <LogOut className="w-4 h-4" />
-        <span>Sign Out</span>
+        <span>{t.common.signOut}</span>
       </button>
     </aside>
   );
 }
+

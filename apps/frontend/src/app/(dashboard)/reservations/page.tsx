@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Calendar, Phone, Loader2, AlertCircle, RefreshCw, Plus, X, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { api, getAuthUser } from '@/lib/api';
 
+import { useLocale } from '@/contexts/LocaleContext';
+
 interface RestaurantTable {
   id: string;
   tableNumber: string;
@@ -32,6 +34,7 @@ const STATUS_STYLE: Record<Reservation['status'], string> = {
 };
 
 export default function ReservationsPage() {
+  const { t } = useLocale();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,14 +74,14 @@ export default function ReservationsPage() {
         setLoadError('');
       } catch (err: any) {
         setLoadError(
-          err.response?.data?.message || 'Failed to connect to backend service.'
+          err.response?.data?.message || t.common.error
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [branchId]
+    [branchId, t]
   );
 
   useEffect(() => {
@@ -94,7 +97,7 @@ export default function ReservationsPage() {
     e.preventDefault();
     setFormError('');
     if (!form.guestName || !form.guestPhone || !form.reservationTime || !form.partySize) {
-      setFormError('Please fill in guest name, phone, party size, and reservation time.');
+      setFormError(t.reservations.modal.namePlaceholder);
       return;
     }
     setCreating(true);
@@ -112,7 +115,7 @@ export default function ReservationsPage() {
       setForm({ guestName: '', guestEmail: '', guestPhone: '', partySize: '2', reservationTime: '', tableId: '' });
       await fetchData(true);
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Failed to create reservation.');
+      setFormError(err.response?.data?.message || t.common.error);
     } finally {
       setCreating(false);
     }
@@ -136,7 +139,7 @@ export default function ReservationsPage() {
       await api.delete(`/tables/reservations/${resId}`);
       await fetchData(true);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to delete reservation.');
+      alert(err.response?.data?.message || t.common.error);
     } finally {
       setBusyId(null);
     }
@@ -146,7 +149,7 @@ export default function ReservationsPage() {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading reservation roster...</span>
+        <span>{t.reservations.loadingReservations}</span>
       </div>
     );
   }
@@ -156,7 +159,7 @@ export default function ReservationsPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">Failed to load reservations</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.common.error}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -167,8 +170,8 @@ export default function ReservationsPage() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Table Reservations & Booking Roster</h1>
-          <p className="text-xs text-zinc-400 mt-1">Guest Profiles & Table Allocation Schedule</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.reservations.title}</h1>
+          <p className="text-xs text-zinc-400 mt-1">{t.reservations.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -176,14 +179,14 @@ export default function ReservationsPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20 transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span>{t.common.refresh}</span>
           </button>
           <button
             onClick={() => setShowCreate(true)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Reservation</span>
+            <span>{t.reservations.createReservation}</span>
           </button>
         </div>
       </div>
@@ -191,7 +194,7 @@ export default function ReservationsPage() {
       <div className="glass-panel p-6 rounded-2xl border border-white/10">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-5 h-5 text-blue-400" />
-          <h2 className="text-base font-semibold text-white">Dining Reservations</h2>
+          <h2 className="text-base font-semibold text-white">{t.reservations.upcomingTitle}</h2>
         </div>
 
         <div className="space-y-3">
@@ -201,13 +204,13 @@ export default function ReservationsPage() {
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-white">{res.guestName}</h3>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${STATUS_STYLE[res.status]}`}>
-                    {res.status.replace('_', ' ')}
+                    {(t.reservations.status as any)[res.status] || res.status.replace('_', ' ')}
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400 mt-1 flex items-center gap-3 flex-wrap">
-                  <span>Party of {res.partySize}</span>
+                  <span>{t.reservations.persons.replace('{count}', String(res.partySize))}</span>
                   <span>|</span>
-                  <span>Table: {res.table ? res.table.tableNumber : 'Unassigned'}</span>
+                  <span>{t.tables.tableNumber}: {res.table ? res.table.tableNumber : t.reservationsDetail.tableUnassignedOption}</span>
                   <span>|</span>
                   <span className="flex items-center gap-1">
                     <Phone className="w-3 h-3 text-zinc-500" />
@@ -229,7 +232,7 @@ export default function ReservationsPage() {
                       className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 font-semibold"
                     >
                       {busyId === res.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                      Check In
+                      {t.reservations.checkIn}
                     </button>
                     <button
                       onClick={() => updateStatus(res, 'CANCELLED')}
@@ -237,7 +240,7 @@ export default function ReservationsPage() {
                       className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 disabled:opacity-50 font-semibold"
                     >
                       <XCircle className="w-3 h-3" />
-                      Cancel
+                      {t.reservations.cancel}
                     </button>
                   </div>
                 )}
@@ -249,14 +252,14 @@ export default function ReservationsPage() {
                     className="flex items-center gap-1 text-xs text-zinc-400 hover:text-rose-400 disabled:opacity-50 transition-colors"
                   >
                     {busyId === res.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                    <span>Remove</span>
+                    <span>{t.common.delete}</span>
                   </button>
                 )}
               </div>
             </div>
           ))}
           {reservations.length === 0 && (
-            <p className="text-xs text-zinc-500 text-center py-10">No active dining reservations found</p>
+            <p className="text-xs text-zinc-500 text-center py-10">{t.reservations.noReservations}</p>
           )}
         </div>
       </div>
@@ -265,7 +268,7 @@ export default function ReservationsPage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="glass-panel rounded-2xl border border-white/10 max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-white">New Reservation</h2>
+              <h2 className="text-base font-semibold text-white">{t.reservations.createReservation}</h2>
               <button onClick={() => setShowCreate(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
@@ -273,26 +276,26 @@ export default function ReservationsPage() {
 
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
-                <label className="text-[11px] text-zinc-400 font-medium">Guest Name</label>
+                <label className="text-[11px] text-zinc-400 font-medium">{t.reservations.modal.nameLabel}</label>
                 <input
                   value={form.guestName}
                   onChange={(e) => setForm({ ...form, guestName: e.target.value })}
                   className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
-                  placeholder="Full name"
+                  placeholder={t.reservations.modal.namePlaceholder}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] text-zinc-400 font-medium">Phone</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">{t.reservations.modal.phoneLabel}</label>
                   <input
                     value={form.guestPhone}
                     onChange={(e) => setForm({ ...form, guestPhone: e.target.value })}
                     className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
-                    placeholder="+1 555 0100"
+                    placeholder={t.reservations.modal.phonePlaceholder}
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-zinc-400 font-medium">Party Size</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">{t.reservations.modal.partySizeLabel}</label>
                   <input
                     type="number"
                     min={1}
@@ -303,17 +306,17 @@ export default function ReservationsPage() {
                 </div>
               </div>
               <div>
-                <label className="text-[11px] text-zinc-400 font-medium">Email (optional)</label>
+                <label className="text-[11px] text-zinc-400 font-medium">{t.reservations.modal.emailLabel}</label>
                 <input
                   value={form.guestEmail}
                   onChange={(e) => setForm({ ...form, guestEmail: e.target.value })}
                   className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
-                  placeholder="guest@email.com"
+                  placeholder={t.reservations.modal.emailPlaceholder}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] text-zinc-400 font-medium">Date & Time</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">{t.reservations.modal.timeLabel}</label>
                   <input
                     type="datetime-local"
                     value={form.reservationTime}
@@ -322,18 +325,18 @@ export default function ReservationsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-zinc-400 font-medium">Table (optional)</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">{t.reservations.modal.tableLabel}</label>
                   <select
                     value={form.tableId}
                     onChange={(e) => setForm({ ...form, tableId: e.target.value })}
                     className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
                   >
                     <option value="" className="bg-zinc-900">
-                      Unassigned
+                      {t.reservationsDetail.tableUnassignedOption}
                     </option>
-                    {tables.map((t) => (
-                      <option key={t.id} value={t.id} className="bg-zinc-900">
-                        {t.tableNumber} (seats {t.capacity})
+                    {tables.map((tbl) => (
+                      <option key={tbl.id} value={tbl.id} className="bg-zinc-900">
+                        {tbl.tableNumber} ({t.reservations.persons.replace('{count}', String(tbl.capacity))})
                       </option>
                     ))}
                   </select>
@@ -348,7 +351,7 @@ export default function ReservationsPage() {
                 className="w-full mt-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all"
               >
                 {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>{creating ? 'Creating...' : 'Create Reservation'}</span>
+                <span>{creating ? t.reservations.modal.saving : t.reservations.modal.submit}</span>
               </button>
             </form>
           </div>
@@ -357,3 +360,4 @@ export default function ReservationsPage() {
     </div>
   );
 }
+

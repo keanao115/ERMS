@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Users, Clock, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { api, getAuthUser } from '@/lib/api';
 
+import { useLocale } from '@/contexts/LocaleContext';
+
 type TableStatus = 'AVAILABLE' | 'RESERVED' | 'OCCUPIED' | 'BILL_REQUESTED' | 'BUSSING' | 'OUT_OF_SERVICE';
 
 interface RestaurantTable {
@@ -18,6 +20,7 @@ const ALL_STATUSES: TableStatus[] = ['AVAILABLE', 'RESERVED', 'OCCUPIED', 'BILL_
 const POLL_INTERVAL_MS = 8000;
 
 export default function TablesPage() {
+  const { t } = useLocale();
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,14 +45,14 @@ export default function TablesPage() {
         setLoadError('');
       } catch (err: any) {
         setLoadError(
-          err.response?.data?.message || 'Failed to connect to backend service.'
+          err.response?.data?.message || t.common.error
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [branchId]
+    [branchId, t]
   );
 
   useEffect(() => {
@@ -69,7 +72,7 @@ export default function TablesPage() {
         prev.map((t) => (t.id === tableId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t))
       );
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to update table status.');
+      alert(err.response?.data?.message || t.common.error);
     } finally {
       setUpdatingId(null);
     }
@@ -96,7 +99,7 @@ export default function TablesPage() {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading floor plan table layout...</span>
+        <span>{t.tables.loadingTables}</span>
       </div>
     );
   }
@@ -106,7 +109,7 @@ export default function TablesPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">Failed to load table floor plan</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.common.error}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -117,15 +120,15 @@ export default function TablesPage() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Tables & Interactive Floor Plan Layout</h1>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.tables.title}</h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Real-Time Floor Plan Matrix — Select Table Status to Update Live Floor State
+            {t.tables.subtitle}
           </p>
         </div>
         <div className="flex items-center gap-3">
           {lastSynced && (
             <span className="text-[11px] text-zinc-500">
-              Last synced {lastSynced.toLocaleTimeString()}
+              {t.tables.lastSynced} {lastSynced.toLocaleTimeString()}
             </span>
           )}
           <button
@@ -133,7 +136,7 @@ export default function TablesPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20 transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span>{t.common.refresh}</span>
           </button>
         </div>
       </div>
@@ -150,7 +153,7 @@ export default function TablesPage() {
                 <div className="relative">
                   {updatingId === tbl.id ? (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 flex items-center gap-1">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Updating...
+                      <Loader2 className="w-3 h-3 animate-spin" /> {t.common.saving}
                     </span>
                   ) : (
                     <select
@@ -160,7 +163,7 @@ export default function TablesPage() {
                     >
                       {ALL_STATUSES.map((st) => (
                         <option key={st} value={st} className="bg-zinc-900 text-white font-sans">
-                          {st.replace('_', ' ')}
+                          {(t.tables.status as any)[st] || st.replace('_', ' ')}
                         </option>
                       ))}
                     </select>
@@ -169,24 +172,25 @@ export default function TablesPage() {
               </div>
               <p className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Capacity: {tbl.capacity} Guests</span>
+                <span>{t.tables.capacity.replace('{count}', String(tbl.capacity))}</span>
               </p>
             </div>
 
             <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] text-zinc-400">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-zinc-500" />
-                <span>Updated {new Date(tbl.updatedAt).toLocaleTimeString()}</span>
+                <span>{t.tables.updatedAt.replace('{time}', new Date(tbl.updatedAt).toLocaleTimeString())}</span>
               </span>
             </div>
           </div>
         ))}
         {tables.length === 0 && (
           <p className="text-xs text-zinc-500 col-span-full text-center py-10">
-            No table data found for this branch.
+            {t.tables.noTables}
           </p>
         )}
       </div>
     </div>
   );
 }
+

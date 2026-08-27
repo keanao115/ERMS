@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { io, Socket } from 'socket.io-client';
 import { api, getAuthUser } from '@/lib/api';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface MenuItemVariant {
   id: string;
@@ -68,6 +69,7 @@ function getSocketUrl(): string {
 }
 
 export default function PosPage() {
+  const { t } = useLocale();
   const [user, setUser] = useState<CurrentUser | null>(null);
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -342,7 +344,7 @@ export default function PosPage() {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading POS menu and floor tables...</span>
+        <span>{t.pos.loadingMenu}</span>
       </div>
     );
   }
@@ -352,7 +354,7 @@ export default function PosPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertTriangle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">Failed to load POS data</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.common.error}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -375,18 +377,20 @@ export default function PosPage() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <h3 className="text-base font-bold text-white mb-1">
-                Order #{cancellationAlert.orderNumber} Was Cancelled
+                {t.posVoid.cancelledAlert.replace('{number}', cancellationAlert.orderNumber || '')}
               </h3>
               <p className="text-xs text-zinc-300 mb-4">
-                This order was cancelled by <span className="font-bold text-rose-300">{cancellationAlert.actorName}</span> ({cancellationAlert.source}).
+                {t.posVoid.cancelledBy.replace('{actorName}', cancellationAlert.actorName).replace('{source}', cancellationAlert.source)}
                 <br />
-                <span className="italic text-zinc-400">Reason: &quot;{cancellationAlert.reason}&quot;</span>
+                <span className="italic text-zinc-400">
+                  {t.posVoid.cancelledReason.replace('{reason}', cancellationAlert.reason)}
+                </span>
               </p>
               <button
                 onClick={() => setCancellationAlert(null)}
                 className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30"
               >
-                Return to Table Floor Plan
+                {t.posVoid.returnToFloor}
               </button>
             </motion.div>
           </div>
@@ -399,7 +403,7 @@ export default function PosPage() {
         <div className="glass-panel p-3 rounded-2xl border border-white/10 flex items-center gap-2 overflow-x-auto">
           <span className="text-xs font-semibold text-zinc-400 px-2 flex items-center gap-1.5 shrink-0">
             <Grid3X3 className="w-3.5 h-3.5 text-blue-400" />
-            <span>Table:</span>
+            <span>{t.tables.tableNumber}:</span>
           </span>
           {tables.map((tbl) => (
             <button
@@ -411,7 +415,7 @@ export default function PosPage() {
                   : 'bg-white/5 border-white/10 text-zinc-300 hover:border-white/20'
               }`}
             >
-              {tbl.tableNumber} ({tbl.capacity} Seats)
+              {tbl.tableNumber} ({tbl.capacity} {t.reservations.persons.replace('{count}', '')})
             </button>
           ))}
         </div>
@@ -422,7 +426,7 @@ export default function PosPage() {
             <Search className="w-4 h-4 text-zinc-400" />
             <input
               type="text"
-              placeholder="Filter menu items..."
+              placeholder={t.pos.searchMenuPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-transparent focus:outline-none w-full placeholder-zinc-500 text-white"
@@ -440,7 +444,7 @@ export default function PosPage() {
                     : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
                 }`}
               >
-                {cat}
+                {cat === 'ALL' ? t.pos.categoryAll : cat}
               </button>
             ))}
           </div>
@@ -477,10 +481,14 @@ export default function PosPage() {
                 <button
                   onClick={() => addToCart(dish)}
                   disabled={!dish.isAvailable}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-600/30 flex items-center gap-1 transition-all"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all ${
+                    dish.isAvailable
+                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/30'
+                      : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                  }`}
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Item</span>
+                  <Plus className="w-3 h-3" />
+                  <span>{dish.isAvailable ? t.pos.addToOrder : t.menu.itemUnavailable}</span>
                 </button>
               </div>
             </motion.div>
@@ -496,10 +504,10 @@ export default function PosPage() {
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-blue-400" />
-                <span>Active Order Cart</span>
+                <span>{t.pos.currentOrderTitle}</span>
               </h2>
               <p className="text-[10px] text-zinc-400">
-                Table {selectedTable?.tableNumber ?? '-'}
+                {t.tables.tableNumber} {selectedTable?.tableNumber ?? '-'}
                 {orderNumber && <span className="text-blue-400"> · {orderNumber}</span>}
               </p>
             </div>
@@ -511,7 +519,7 @@ export default function PosPage() {
           {/* Cart Items List */}
           <div className="space-y-3 max-h-[35vh] overflow-y-auto pr-1">
             {cart.length === 0 ? (
-              <p className="text-xs text-zinc-500 text-center py-8">Cart is empty. Tap menu items to add.</p>
+              <p className="text-xs text-zinc-500 text-center py-8">{t.pos.currentOrderEmpty}</p>
             ) : (
               cart.map((item, idx) => (
                 <div
@@ -564,19 +572,19 @@ export default function PosPage() {
         <div className="pt-4 border-t border-white/10 space-y-3">
           {/* Tip Presets */}
           <div>
-            <span className="text-[10px] font-medium text-zinc-400 block mb-1.5">Tip Presets:</span>
+            <span className="text-[10px] font-medium text-zinc-400 block mb-1.5">{t.pos.tip}:</span>
             <div className="grid grid-cols-4 gap-1.5">
-              {[15, 18, 20, 25].map((t) => (
+              {[15, 18, 20, 25].map((tipVal) => (
                 <button
-                  key={t}
-                  onClick={() => setTipPercent(t)}
+                  key={tipVal}
+                  onClick={() => setTipPercent(tipVal)}
                   className={`py-1 rounded-lg text-[10px] font-bold border transition-colors ${
-                    tipPercent === t
+                    tipPercent === tipVal
                       ? 'bg-blue-600 border-blue-500 text-white'
                       : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
                   }`}
                 >
-                  {t}%
+                  {tipVal}%
                 </button>
               ))}
             </div>
@@ -584,19 +592,19 @@ export default function PosPage() {
 
           <div className="space-y-1.5 text-xs text-zinc-400">
             <div className="flex justify-between">
-              <span>Subtotal</span>
+              <span>{t.pos.subtotal}</span>
               <span className="text-white">${subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Tax (8.875%)</span>
+              <span>{t.pos.tax}</span>
               <span className="text-white">${tax.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Tip ({tipPercent}%)</span>
+              <span>{t.pos.tip} ({tipPercent}%)</span>
               <span className="text-white">${tip.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm font-extrabold text-white pt-2 border-t border-white/10">
-              <span>Total Bill</span>
+              <span>{t.pos.total}</span>
               <span className="text-emerald-400">${total.toFixed(2)}</span>
             </div>
           </div>
@@ -620,7 +628,7 @@ export default function PosPage() {
               className="py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center gap-1.5 transition-all"
             >
               <CreditCard className="w-4 h-4" />
-              <span>Settle Payment</span>
+              <span>{t.pos.checkout}</span>
             </button>
 
             <button
@@ -629,7 +637,7 @@ export default function PosPage() {
               className="py-2.5 rounded-xl bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white font-bold text-xs border border-white/10 flex items-center justify-center gap-1.5 transition-all"
             >
               {placingOrder ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
-              <span>{orderId ? (hasUnsentItems ? 'Send New Items' : 'Sent to Kitchen') : 'Send to Kitchen'}</span>
+              <span>{t.pos.sendToKitchen}</span>
             </button>
           </div>
 
@@ -641,7 +649,7 @@ export default function PosPage() {
                 className="py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 font-semibold text-[11px] flex items-center justify-center gap-1 transition-all"
               >
                 <Ban className="w-3.5 h-3.5" />
-                <span>Void Order</span>
+                <span>{t.pos.voidOrder}</span>
               </button>
 
               <button
@@ -649,7 +657,7 @@ export default function PosPage() {
                 className="py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 font-semibold text-[11px] flex items-center justify-center gap-1 transition-all"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Issue Refund</span>
+                <span>{t.pos.refundOrder}</span>
               </button>
             </div>
           )}
@@ -685,16 +693,16 @@ export default function PosPage() {
                 }`}>
                   {modalMode === 'VOID' ? <Ban className="w-6 h-6" /> : <RotateCcw className="w-6 h-6" />}
                 </div>
-                <h3 className="text-lg font-bold text-white">{modalMode === 'VOID' ? 'Void' : 'Refund'} Order #{orderNumber}</h3>
+                <h3 className="text-lg font-bold text-white">{modalMode === 'VOID' ? t.posVoid.voidTitle : t.posVoid.refundTitle} #{orderNumber}</h3>
                 <p className="text-xs text-zinc-400">
-                  Restores ingredient stock, updates status to {modalMode === 'VOID' ? 'CANCELLED' : 'REFUNDED'}, and writes an audit log.
+                  {modalMode === 'VOID' ? t.posVoid.voidDesc : t.posVoid.refundDesc}
                 </p>
               </div>
 
               <form onSubmit={handleManagerActionSubmit} className="space-y-4">
                 <div>
                   <label className="text-xs font-medium text-zinc-300 block mb-1">
-                    Reason (Required) <span className="text-rose-400">*</span>
+                    {t.posVoid.reasonLabel}
                   </label>
                   <textarea
                     rows={3}
@@ -702,7 +710,7 @@ export default function PosPage() {
                     required
                     value={managerReason}
                     onChange={(e) => setManagerReason(e.target.value)}
-                    placeholder="e.g. Customer changed mind / Billing error"
+                    placeholder={t.posVoid.reasonPlaceholder}
                     className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500/50"
                   />
                 </div>
@@ -723,7 +731,7 @@ export default function PosPage() {
                     }}
                     className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs border border-white/10"
                   >
-                    Cancel
+                    {t.common.cancel}
                   </button>
 
                   <button
@@ -736,7 +744,7 @@ export default function PosPage() {
                     }`}
                   >
                     {managerSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>Confirm {modalMode === 'VOID' ? 'Void' : 'Refund'}</span>
+                    <span>{modalMode === 'VOID' ? t.posVoid.confirmVoid : t.posVoid.confirmRefund}</span>
                   </button>
                 </div>
               </form>
@@ -766,9 +774,9 @@ export default function PosPage() {
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 border border-emerald-500/30">
                   <CreditCard className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-white">Settle Payment</h3>
+                <h3 className="text-lg font-bold text-white">{t.receipt.settleTitle}</h3>
                 <p className="text-xs text-zinc-400">
-                  Select payment method for Table {selectedTable?.tableNumber ?? '-'}
+                  {t.receipt.selectPaymentFor.replace('{number}', selectedTable?.tableNumber ?? '-')}
                 </p>
               </div>
 
@@ -780,7 +788,7 @@ export default function PosPage() {
                     disabled={settling}
                     className="w-full p-3.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40 border border-white/10 text-xs font-semibold text-white flex items-center justify-between transition-colors"
                   >
-                    <span>{pm.replace('_', ' ')}</span>
+                    <span>{(t.receipt.paymentMethods as any)[pm] || pm.replace('_', ' ')}</span>
                     <span className="text-emerald-400 font-bold flex items-center gap-1.5">
                       {settling && <Loader2 className="w-3 h-3 animate-spin" />}${total.toFixed(2)}
                     </span>
@@ -810,15 +818,15 @@ export default function PosPage() {
               </button>
 
               <div className="text-center pb-4 border-b border-dashed border-zinc-400 mb-4">
-                <h2 className="font-bold text-sm">AURA DOWNTOWN FINE DINING</h2>
-                <p className="text-[10px] text-zinc-600">777 Grand Ave, New York, NY</p>
-                <p className="text-[10px] text-zinc-600">Tel: +1 (212) 555-0199</p>
+                <h2 className="font-bold text-sm">{t.receipt.restaurantName}</h2>
+                <p className="text-[10px] text-zinc-600">{t.receipt.address}</p>
+                <p className="text-[10px] text-zinc-600">{t.receipt.phone}</p>
               </div>
 
               <div className="space-y-1 mb-4 text-[11px]">
-                <p>Order: #{orderNumber ?? 'N/A'}</p>
-                <p>Table: {selectedTable?.tableNumber ?? '-'}</p>
-                <p>Date: {new Date().toLocaleString()}</p>
+                <p>{t.receipt.orderLabel}{orderNumber ?? 'N/A'}</p>
+                <p>{t.receipt.tableLabel}{selectedTable?.tableNumber ?? '-'}</p>
+                <p>{t.receipt.dateLabel}{new Date().toLocaleString()}</p>
               </div>
 
               <div className="space-y-2 py-3 border-y border-dashed border-zinc-400 mb-4 text-[11px]">
@@ -833,15 +841,15 @@ export default function PosPage() {
               </div>
 
               <div className="space-y-1 text-right text-[11px] font-bold">
-                <p>Subtotal: ${subtotal.toFixed(2)}</p>
-                <p>Tax (8.875%): ${tax.toFixed(2)}</p>
-                <p>Tip ({tipPercent}%): ${tip.toFixed(2)}</p>
-                <p className="text-sm font-extrabold pt-1">TOTAL: ${total.toFixed(2)}</p>
+                <p>{t.receipt.subtotal}${subtotal.toFixed(2)}</p>
+                <p>{t.receipt.tax}${tax.toFixed(2)}</p>
+                <p>{t.receipt.tip.replace('{pct}', String(tipPercent))}${tip.toFixed(2)}</p>
+                <p className="text-sm font-extrabold pt-1">{t.receipt.total}${total.toFixed(2)}</p>
               </div>
 
               <div className="text-center pt-4 border-t border-dashed border-zinc-400 mt-4 text-[10px] text-zinc-600">
-                <p>Payment confirmed — inventory auto-deducted.</p>
-                <p>*** Merchant Copy ***</p>
+                <p>{t.receipt.confirmedNote}</p>
+                <p>{t.receipt.merchantCopy}</p>
               </div>
             </motion.div>
           </div>

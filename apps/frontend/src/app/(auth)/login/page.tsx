@@ -4,18 +4,21 @@ import React, { useState } from 'react';
 import { Sparkles, ArrowRight, ShieldCheck, User, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
+import { useLocale } from '@/contexts/LocaleContext';
+import LanguageSwitcher from '@/components/layout/LanguageSwitcher';
 
 export default function LoginPage() {
+  const { t } = useLocale();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const quickRoles = [
-    { label: 'Super Admin', email: 'admin@aura.com' },
-    { label: 'Store Manager', email: 'manager@aura.com' },
-    { label: 'Cashier', email: 'cashier@aura.com' },
-    { label: 'Head Chef', email: 'chef@aura.com' }
+    { label: t.login.roleAdmin, email: 'admin@aura.com' },
+    { label: t.login.roleManager, email: 'manager@aura.com' },
+    { label: t.login.roleCashier, email: 'cashier@aura.com' },
+    { label: t.login.roleChef, email: 'chef@aura.com' }
   ];
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -44,7 +47,7 @@ export default function LoginPage() {
 
       window.location.href = '/my-attendance';
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed. Please check backend API.');
+      setError(err.response?.data?.message || t.login.errorDefault);
     } finally {
       setLoading(false);
     }
@@ -52,6 +55,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4 relative overflow-hidden font-sans">
+      {/* Top Right Language Switcher on Login Page */}
+      <div className="absolute top-6 right-6 z-20">
+        <LanguageSwitcher />
+      </div>
+
       {/* Dynamic Background Glow Blobs */}
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
@@ -67,14 +75,14 @@ export default function LoginPage() {
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center mx-auto mb-3 shadow-xl shadow-blue-500/25">
             <Sparkles className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Enterprise ERMS</h1>
-          <p className="text-xs text-zinc-400 mt-1">Aura Hospitality SaaS Platform</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.brand.platformName}</h1>
+          <p className="text-xs text-zinc-400 mt-1">{t.brand.platformSubtitle}</p>
         </div>
 
         {/* Quick Demo Role Selectors */}
         <div className="mb-6">
           <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-2">
-            ⚡ Quick Demo Persona Select:
+            {t.login.quickDemoLabel}
           </label>
           <div className="grid grid-cols-2 gap-2">
             {quickRoles.map((role) => (
@@ -106,7 +114,7 @@ export default function LoginPage() {
         {/* Credentials Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="text-xs text-zinc-300 font-medium block mb-1.5">Email Address</label>
+            <label className="text-xs text-zinc-300 font-medium block mb-1.5">{t.login.emailLabel}</label>
             <div className="relative">
               <User className="w-4 h-4 text-zinc-500 absolute left-3 top-3" />
               <input
@@ -115,13 +123,13 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="name@aura.com"
+                placeholder={t.login.emailPlaceholder}
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs text-zinc-300 font-medium block mb-1.5">Password</label>
+            <label className="text-xs text-zinc-300 font-medium block mb-1.5">{t.login.passwordLabel}</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-zinc-500 absolute left-3 top-3" />
               <input
@@ -130,7 +138,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="••••••••"
+                placeholder={t.login.passwordPlaceholder}
               />
             </div>
           </div>
@@ -141,10 +149,10 @@ export default function LoginPage() {
             className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all mt-6 disabled:opacity-50"
           >
             {loading ? (
-              <span>Authenticating...</span>
+              <span>{t.login.authenticating}</span>
             ) : (
               <>
-                <span>Sign In to Dashboard</span>
+                <span>{t.login.loginButton}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -154,10 +162,11 @@ export default function LoginPage() {
         <div className="mt-8 pt-4 border-t border-white/10 text-center">
           <p className="text-[11px] text-zinc-500 flex items-center justify-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Protected by JWT RS256 & Enterprise RBAC</span>
+            <span>{t.login.securityNote}</span>
           </p>
         </div>
       </motion.div>
     </div>
   );
 }
+

@@ -22,7 +22,10 @@ const ACTIONS = ['ALL', 'CREATE', 'READ', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT',
 
 const POLL_INTERVAL_MS = 15000;
 
+import { useLocale } from '@/contexts/LocaleContext';
+
 export default function AuditLogsPage() {
+  const { t } = useLocale();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,17 +51,14 @@ export default function AuditLogsPage() {
         setLoadError('');
       } catch (err: any) {
         setLoadError(
-          err.response?.data?.message ||
-            (err.response?.status === 403
-              ? 'Role access denied. Requires SUPER_ADMIN / RESTAURANT_OWNER / STORE_MANAGER.'
-              : 'Failed to connect to backend service.')
+          err.response?.data?.message || t.auditLogs.errorLoad
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [actionFilter, isManagerOrAdmin]
+    [actionFilter, isManagerOrAdmin, t]
   );
 
   useEffect(() => {
@@ -78,18 +78,18 @@ export default function AuditLogsPage() {
           <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
             <Lock className="w-7 h-7" />
           </div>
-          <h2 className="text-xl font-bold text-white">Access Restricted</h2>
+          <h2 className="text-xl font-bold text-white">{t.accessPanel.title}</h2>
           <p className="text-sm text-zinc-300 font-medium">
-            Security Audit Trail & Compliance Log is restricted exclusively to Store Managers and Super Administrators.
+            {t.accessPanel.auditLogs.message}
           </p>
           <p className="text-xs text-zinc-400 max-w-md mx-auto">
-            Non-manager staff accounts do not have permission to view system security logs, override reasons, or audit trails.
+            {t.accessPanel.auditLogs.sub}
           </p>
           <div className="pt-2">
             <Link href="/my-attendance">
               <button className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-lg shadow-blue-600/30 inline-flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                <span>Go to My Shift Attendance</span>
+                <span>{t.common.goToMyShiftAttendance}</span>
               </button>
             </Link>
           </div>
@@ -111,7 +111,7 @@ export default function AuditLogsPage() {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading security audit logs...</span>
+        <span>{t.auditLogs.loadingLogs}</span>
       </div>
     );
   }
@@ -121,7 +121,7 @@ export default function AuditLogsPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">Failed to load audit logs</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.auditLogs.errorLoad}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -132,8 +132,8 @@ export default function AuditLogsPage() {
     <div className="space-y-8 max-w-7xl mx-auto font-sans">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Security Audit Trail & Compliance Log</h1>
-          <p className="text-xs text-zinc-400 mt-1">Immutable Log Records — Latest 100 Entries with Cancellation Source & Reason Attribution</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.auditLogs.title}</h1>
+          <p className="text-xs text-zinc-400 mt-1">{t.auditLogs.subtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -143,7 +143,7 @@ export default function AuditLogsPage() {
           >
             {ACTIONS.map((a) => (
               <option key={a} value={a} className="bg-zinc-900">
-                {a}
+                {a === 'ALL' ? t.common.all : a}
               </option>
             ))}
           </select>
@@ -152,7 +152,7 @@ export default function AuditLogsPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20 transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span>{t.common.refresh}</span>
           </button>
         </div>
       </div>
@@ -160,26 +160,26 @@ export default function AuditLogsPage() {
       <div className="glass-panel p-6 rounded-2xl border border-white/10">
         <div className="flex items-center gap-2 mb-4">
           <ShieldAlert className="w-5 h-5 text-rose-400" />
-          <h2 className="text-base font-semibold text-white">System Security Activity Log</h2>
+          <h2 className="text-base font-semibold text-white">{t.auditLogs.tableTitle}</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs font-mono">
             <thead>
               <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Timestamp</th>
-                <th className="py-3 px-4">Actor Name & Role</th>
-                <th className="py-3 px-4">Source</th>
-                <th className="py-3 px-4">Action Type</th>
-                <th className="py-3 px-4">Target Entity</th>
-                <th className="py-3 px-4">Reason / Details</th>
-                <th className="py-3 px-4">Trace ID</th>
+                <th className="py-3 px-4">{t.auditLogs.colTimestamp}</th>
+                <th className="py-3 px-4">{t.auditLogs.colActor}</th>
+                <th className="py-3 px-4">{t.auditLogs.colSource}</th>
+                <th className="py-3 px-4">{t.auditLogs.colAction}</th>
+                <th className="py-3 px-4">{t.auditLogs.colTarget}</th>
+                <th className="py-3 px-4">{t.auditLogs.colReason}</th>
+                <th className="py-3 px-4">{t.auditLogs.colTraceId}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-[11px]">
               {logs.map((log) => {
                 const parsed = parsePayloadDetails(log.payload);
-                const actorName = parsed?.actorName || (log.user ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() : 'System');
+                const actorName = parsed?.actorName || (log.user ? `${log.user.firstName || ''} ${log.user.lastName || ''}`.trim() : t.auditLogs.systemActor);
                 const source = parsed?.source || 'SYSTEM';
                 const reason = parsed?.reason || '—';
 
@@ -187,7 +187,7 @@ export default function AuditLogsPage() {
                   <tr key={log.id} className="hover:bg-white/5 transition-colors">
                     <td className="py-3.5 px-4 text-zinc-400">{new Date(log.createdAt).toLocaleString()}</td>
                     <td className="py-3.5 px-4 text-white font-semibold">
-                      {actorName} {log.userRole ? <span className="text-[10px] text-zinc-400">({log.userRole})</span> : ''}
+                      {actorName} {log.userRole ? <span className="text-[10px] text-zinc-400">({(t.employees.roles as any)[log.userRole] || log.userRole})</span> : ''}
                     </td>
                     <td className="py-3.5 px-4">
                       {source === 'KDS_KITCHEN' ? (
@@ -225,7 +225,7 @@ export default function AuditLogsPage() {
               {logs.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-zinc-500 font-sans">
-                    No matching security audit logs found
+                    {t.auditLogs.noLogs}
                   </td>
                 </tr>
               )}
@@ -236,3 +236,4 @@ export default function AuditLogsPage() {
     </div>
   );
 }
+

@@ -63,7 +63,10 @@ function formatDatetimeLocal(isoStr: string | null) {
 
 const POLL_INTERVAL_MS = 10000;
 
+import { useLocale } from '@/contexts/LocaleContext';
+
 export default function EmployeesPage() {
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<'roster' | 'payroll' | 'timesheet'>('roster');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [payrolls, setPayrolls] = useState<PayrollRecord[]>([]);
@@ -88,7 +91,8 @@ export default function EmployeesPage() {
   const userRole = currentUser?.role;
 
   // Manager/Admin privileges check (STORE_MANAGER, SUPER_ADMIN, RESTAURANT_OWNER)
-  const isStoreManager = userRole === 'STORE_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'RESTAURANT_OWNER';
+  const isStoreManager = userRole === 'STORE_MANAGER' || userRole === 'SUPER_ADMIN' || userRole === 'RESTAURANT_OWNER' || userRole === 'REGIONAL_MANAGER';
+
 
   const fetchEmployees = useCallback(
     async (isBackground: boolean) => {
@@ -250,7 +254,7 @@ export default function EmployeesPage() {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading workforce employee data...</span>
+        <span>{t.common.loading}</span>
       </div>
     );
   }
@@ -260,7 +264,7 @@ export default function EmployeesPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">Failed to load workforce data</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.common.error}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -274,18 +278,18 @@ export default function EmployeesPage() {
           <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
             <Lock className="w-7 h-7" />
           </div>
-          <h2 className="text-xl font-bold text-white">Access Restricted</h2>
+          <h2 className="text-xl font-bold text-white">{t.accessPanel.title}</h2>
           <p className="text-sm text-zinc-300 font-medium">
-            Workforce & Timesheet Management is restricted exclusively to Store Managers and Super Administrators.
+            {t.accessPanel.employees.message}
           </p>
           <p className="text-xs text-zinc-400 max-w-md mx-auto">
-            Non-manager staff accounts may perform shift check-in/out and view personal weekly timesheets on the My Shift Attendance page.
+            {t.accessPanel.employees.sub}
           </p>
           <div className="pt-2">
             <Link href="/my-attendance">
               <button className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-lg shadow-blue-600/30 inline-flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                <span>Go to My Shift Attendance</span>
+                <span>{t.common.goToMyShiftAttendance}</span>
               </button>
             </Link>
           </div>
@@ -300,8 +304,8 @@ export default function EmployeesPage() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Workforce & Timesheet Management</h1>
-          <p className="text-xs text-zinc-400 mt-1">Staff Roster, Daily Clock-In/Out History, Weekly Timesheet Totals & Payroll Accounting</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.employees.title}</h1>
+          <p className="text-xs text-zinc-400 mt-1">{t.employees.subtitle}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
@@ -311,7 +315,7 @@ export default function EmployeesPage() {
                 activeTab === 'roster' ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Staff Roster
+              {t.employees.tabs.roster}
             </button>
             <button
               onClick={() => setActiveTab('timesheet')}
@@ -319,7 +323,7 @@ export default function EmployeesPage() {
                 activeTab === 'timesheet' ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Timesheet & Weekly Totals
+              {t.employees.tabs.timesheet}
             </button>
             <button
               onClick={() => setActiveTab('payroll')}
@@ -327,7 +331,7 @@ export default function EmployeesPage() {
                 activeTab === 'payroll' ? 'bg-blue-600 text-white' : 'text-zinc-400 hover:text-white'
               }`}
             >
-              Payroll & Wage Ledger
+              {t.employees.tabs.payroll}
             </button>
           </div>
 
@@ -336,7 +340,7 @@ export default function EmployeesPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 hover:text-white hover:border-white/20 transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
+            <span>{t.common.refresh}</span>
           </button>
         </div>
       </div>
@@ -345,44 +349,25 @@ export default function EmployeesPage() {
         <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">{actionError}</div>
       )}
 
-      {/* Active Staff Directory Tab (RESTRICTED TO MANAGERS AND SUPER ADMINS) */}
+      {/* Active Staff Directory Tab */}
       {activeTab === 'roster' && (
-        !isStoreManager ? (
-          <div className="glass-panel p-8 rounded-3xl border border-amber-500/30 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto">
-              <Lock className="w-6 h-6" />
-            </div>
-            <h2 className="text-lg font-bold text-white">Access Restricted</h2>
-            <p className="text-xs text-zinc-400 max-w-md mx-auto">
-              Access to the Active Staff Directory and manager staff controls is restricted to Store Managers and Super Administrators.
-            </p>
-            <div className="pt-2">
-              <Link href="/my-attendance">
-                <button className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-lg shadow-blue-600/30 inline-flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Go to My Shift Attendance</span>
-                </button>
-              </Link>
-            </div>
+        <div className="glass-panel p-6 rounded-2xl border border-white/10">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-5 h-5 text-blue-400" />
+            <h2 className="text-base font-semibold text-white">{t.employees.tabs.roster}</h2>
           </div>
-        ) : (
-          <div className="glass-panel p-6 rounded-2xl border border-white/10">
-            <div className="flex items-center gap-2 mb-4">
-              <Users className="w-5 h-5 text-blue-400" />
-              <h2 className="text-base font-semibold text-white">Active Staff Directory</h2>
-            </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Employee Name</th>
-                  <th className="py-3 px-4">Role / Title</th>
-                  <th className="py-3 px-4">Hourly Wage</th>
-                  <th className="py-3 px-4">Upcoming Shift</th>
-                  <th className="py-3 px-4">Attendance Status</th>
-                  <th className="py-3 px-4">Latest Check-In / Check-Out</th>
-                  <th className="py-3 px-4">Actions</th>
+                  <th className="py-3 px-4">{t.employees.employeeName}</th>
+                  <th className="py-3 px-4">{t.employees.jobTitle}</th>
+                  <th className="py-3 px-4">{t.employees.hourlyWage}</th>
+                  <th className="py-3 px-4">{t.employees.shiftsCompleted}</th>
+                  <th className="py-3 px-4">{t.employees.attendanceHistory}</th>
+                  <th className="py-3 px-4">{t.employees.latestCheckInOut || 'Latest Check-In / Out'}</th>
+                  <th className="py-3 px-4">{t.common.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -396,7 +381,7 @@ export default function EmployeesPage() {
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {emp.user?.role && (
                             <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 text-[10px] font-bold tracking-wide">
-                              {emp.user.role}
+                              {(t.employees.roles as any)[emp.user.role] || emp.user.role}
                             </span>
                           )}
                           <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-semibold">
@@ -409,11 +394,11 @@ export default function EmployeesPage() {
                       <td className="py-3.5 px-4">
                         {clockedIn ? (
                           <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                            ● CLOCKED IN
+                            {t.employees.clockedIn}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 text-[10px] font-bold">
-                            OFF DUTY
+                            {t.employees.offDuty}
                           </span>
                         )}
                       </td>
@@ -428,7 +413,7 @@ export default function EmployeesPage() {
                             </div>
                           </div>
                         ) : (
-                          <span className="text-zinc-500 italic text-[11px]">No log</span>
+                          <span className="text-zinc-500 italic text-[11px]">{t.common.none}</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4">
@@ -446,7 +431,7 @@ export default function EmployeesPage() {
                           ) : (
                             <LogIn className="w-3.5 h-3.5" />
                           )}
-                          <span>{clockedIn ? 'Clock Out' : 'Clock In'}</span>
+                          <span>{clockedIn ? t.employees.clockOut : t.employees.clockIn}</span>
                         </button>
                       </td>
                     </tr>
@@ -456,8 +441,7 @@ export default function EmployeesPage() {
             </table>
           </div>
         </div>
-      )
-    )}
+      )}
 
       {/* Timesheet & Weekly Totals Tab */}
       {activeTab === 'timesheet' && (
@@ -466,17 +450,17 @@ export default function EmployeesPage() {
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-blue-400" />
               <div>
-                <h2 className="text-base font-semibold text-white">Employee Attendance & Timesheet History</h2>
+                <h2 className="text-base font-semibold text-white">{t.employeesDetail.timesheetSectionTitle}</h2>
                 <p className="text-xs text-zinc-400">
-                  Select an employee to view daily check-in/out records and weekly totals
-                  {!isStoreManager && ' (Read-Only Mode)'}
+                  {t.employees.subtitle}
+                  {!isStoreManager && ` ${t.employeesDetail.timesheetReadOnly}`}
                 </p>
               </div>
             </div>
 
-            {/* Employee Picker formatting Name — Job Title */}
+            {/* Employee Picker */}
             <div className="flex items-center gap-2">
-              <label className="text-xs text-zinc-400 font-medium">Select Employee:</label>
+              <label className="text-xs text-zinc-400 font-medium">{t.employeesDetail.timesheetSelectLabel}</label>
               <select
                 value={selectedEmpId}
                 onChange={(e) => setSelectedEmpId(e.target.value)}
@@ -494,7 +478,7 @@ export default function EmployeesPage() {
           {loadingAttendance ? (
             <div className="p-12 glass-panel rounded-2xl border border-white/10 text-center text-zinc-400 text-xs flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-              <span>Loading attendance history & weekly summary...</span>
+              <span>{t.employeesDetail.timesheetLoading}</span>
             </div>
           ) : attendanceData ? (
             <div className="space-y-6">
@@ -504,14 +488,14 @@ export default function EmployeesPage() {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-emerald-400" />
                     <h3 className="text-sm font-bold text-white">
-                      Weekly Summary for {attendanceData.employee.name}
+                      {t.employeesDetail.weeklySummaryFor.replace('{name}', attendanceData.employee.name)}
                     </h3>
                     <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-bold">
                       {attendanceData.employee.jobTitle}
                     </span>
                   </div>
                   <span className="text-xs text-zinc-400 font-semibold">
-                    Base Wage: ${attendanceData.employee.hourlyRate.toFixed(2)} / hr
+                    {t.employeesDetail.baseWage.replace('{x}', attendanceData.employee.hourlyRate.toFixed(2))}
                   </span>
                 </div>
 
@@ -519,11 +503,11 @@ export default function EmployeesPage() {
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[10px]">
-                        <th className="py-2.5 px-4">Employee & Role</th>
-                        <th className="py-2.5 px-4">Week Range (Mon – Sun)</th>
-                        <th className="py-2.5 px-4 text-center">Sessions Worked</th>
-                        <th className="py-2.5 px-4 text-right">Total Hours Worked</th>
-                        <th className="py-2.5 px-4 text-right">Est. Gross Pay</th>
+                        <th className="py-2.5 px-4">{t.employeesDetail.colEmployee}</th>
+                        <th className="py-2.5 px-4">{t.employeesDetail.colWeekRange}</th>
+                        <th className="py-2.5 px-4 text-center">{t.employeesDetail.colSessions}</th>
+                        <th className="py-2.5 px-4 text-right">{t.employeesDetail.colTotalHours}</th>
+                        <th className="py-2.5 px-4 text-right">{t.employeesDetail.colEstPay}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -536,7 +520,9 @@ export default function EmployeesPage() {
                           <td className="py-3 px-4 font-bold text-white">
                             {w.weekStart} &nbsp;~&nbsp; {w.weekEnd}
                           </td>
-                          <td className="py-3 px-4 text-center text-zinc-300">{w.sessionCount} shifts</td>
+                          <td className="py-3 px-4 text-center text-zinc-300">
+                            {t.employeesDetail.shiftsUnit.replace('{x}', String(w.sessionCount))}
+                          </td>
                           <td className="py-3 px-4 text-right font-bold text-blue-400">{w.totalHours.toFixed(2)} hrs</td>
                           <td className="py-3 px-4 text-right font-extrabold text-emerald-400">
                             ${(w.totalHours * attendanceData.employee.hourlyRate).toFixed(2)}
@@ -546,7 +532,7 @@ export default function EmployeesPage() {
                       {attendanceData.weeklySummary.length === 0 && (
                         <tr>
                           <td colSpan={5} className="py-6 text-center text-zinc-500">
-                            No attendance records recorded yet for this employee.
+                            {t.employeesDetail.noAttendance}
                           </td>
                         </tr>
                       )}
@@ -560,7 +546,7 @@ export default function EmployeesPage() {
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-bold text-white">
-                      Daily Check-In & Check-Out Log — {attendanceData.employee.name}
+                      {t.employeesDetail.dailyLogFor.replace('{name}', attendanceData.employee.name)}
                     </h3>
                     <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-bold">
                       {attendanceData.employee.jobTitle}
@@ -568,7 +554,7 @@ export default function EmployeesPage() {
                   </div>
                   {isStoreManager && (
                     <span className="text-[11px] text-blue-400 font-semibold">
-                      ✎ Store Manager Privileges Active (Attendance Editing Enabled)
+                      {t.employeesDetail.managerPrivilegeBadge}
                     </span>
                   )}
                 </div>
@@ -577,13 +563,13 @@ export default function EmployeesPage() {
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[10px]">
-                        <th className="py-2.5 px-4">Employee Name & Role</th>
-                        <th className="py-2.5 px-4">Date</th>
-                        <th className="py-2.5 px-4">Clock-In Time</th>
-                        <th className="py-2.5 px-4">Clock-Out Time</th>
-                        <th className="py-2.5 px-4">Hours Worked</th>
-                        <th className="py-2.5 px-4">Shift Status</th>
-                        {isStoreManager && <th className="py-2.5 px-4 text-right">Actions</th>}
+                        <th className="py-2.5 px-4">{t.employeesDetail.colEmployee}</th>
+                        <th className="py-2.5 px-4">{t.employeesDetail.colDate}</th>
+                        <th className="py-2.5 px-4">{t.employeesDetail.colClockIn}</th>
+                        <th className="py-2.5 px-4">{t.employeesDetail.colClockOut}</th>
+                        <th className="py-2.5 px-4">{t.employeesDetail.colHoursWorked}</th>
+                        <th className="py-2.5 px-4">{t.employeesDetail.colShiftStatus}</th>
+                        {isStoreManager && <th className="py-2.5 px-4 text-right">{t.employeesDetail.colActions}</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -619,10 +605,10 @@ export default function EmployeesPage() {
                                   className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-400"
                                 />
                               </td>
-                              <td className="py-3 px-4 text-zinc-400">Recalculating...</td>
+                              <td className="py-3 px-4 text-zinc-400">{t.employeesDetail.recalculating}</td>
                               <td className="py-3 px-4">
                                 <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold">
-                                  EDITING
+                                  {t.employeesDetail.badgeEditing}
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-right">
@@ -637,14 +623,14 @@ export default function EmployeesPage() {
                                     ) : (
                                       <Save className="w-3 h-3" />
                                     )}
-                                    Save
+                                    {t.employeesDetail.btnSave}
                                   </button>
                                   <button
                                     onClick={cancelEditAttendance}
                                     className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-zinc-300 text-[11px] font-semibold flex items-center gap-1 transition-all"
                                   >
                                     <X className="w-3 h-3" />
-                                    Cancel
+                                    {t.employeesDetail.btnCancel}
                                   </button>
                                 </div>
                               </td>
@@ -673,11 +659,11 @@ export default function EmployeesPage() {
                             <td className="py-3 px-4">
                               {isOpen ? (
                                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
-                                  ● ACTIVE SHIFT
+                                  {t.employeesDetail.badgeActive}
                                 </span>
                               ) : (
                                 <span className="px-2 py-0.5 rounded-full bg-zinc-500/20 text-zinc-400 border border-zinc-500/30 text-[10px] font-bold">
-                                  COMPLETED
+                                  {t.employeesDetail.badgeCompleted}
                                 </span>
                               )}
                             </td>
@@ -688,7 +674,7 @@ export default function EmployeesPage() {
                                   className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 ml-auto"
                                 >
                                   <Edit2 className="w-3 h-3" />
-                                  Edit Time
+                                  {t.employeesDetail.btnEditTime}
                                 </button>
                               </td>
                             )}
@@ -698,7 +684,7 @@ export default function EmployeesPage() {
                       {attendanceData.attendance.length === 0 && (
                         <tr>
                           <td colSpan={isStoreManager ? 7 : 6} className="py-6 text-center text-zinc-500">
-                            No clock-in history found for this employee.
+                            {t.employeesDetail.noClockInHistory}
                           </td>
                         </tr>
                       )}
@@ -711,19 +697,19 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      {/* Payroll Tab (Includes ALL Employee Roles: Waiter, Cashier, Kitchen Staff, etc.) */}
+      {/* Payroll Tab */}
       {activeTab === 'payroll' && (
         <div className="space-y-6">
           <div className="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-400" />
-                <h2 className="text-base font-semibold text-white">Payroll Wage Calculation Engine</h2>
+                <h2 className="text-base font-semibold text-white">{t.employeesDetail.payrollTitle}</h2>
               </div>
-              <span className="text-xs text-zinc-400">Formula: Gross Pay = Σ(Total Hours) × Hourly Rate</span>
+              <span className="text-xs text-zinc-400">{t.employeesDetail.payrollFormula}</span>
             </div>
 
-            {/* Display Cards for ALL employees across ALL roles */}
+            {/* Display Cards for employees */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {employees.map((emp) => (
                 <div key={emp.id} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
@@ -742,11 +728,11 @@ export default function EmployeesPage() {
                       className="w-full py-2 bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/30 rounded-lg text-blue-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                     >
                       <Calculator className="w-3.5 h-3.5" />
-                      <span>{busyId === emp.id ? 'Calculating...' : 'Run Payroll Calculation'}</span>
+                      <span>{busyId === emp.id ? t.employeesDetail.btnRunPayrollLoading : t.employeesDetail.btnRunPayroll}</span>
                     </button>
                   ) : (
                     <p className="text-[11px] text-zinc-500 italic text-center py-1 bg-white/5 rounded-lg border border-white/5">
-                      Store Manager privilege required to run payroll
+                      {t.employeesDetail.payrollPrivilegeNote}
                     </p>
                   )}
                 </div>
@@ -756,10 +742,10 @@ export default function EmployeesPage() {
 
           <div className="glass-panel p-6 rounded-2xl border border-white/10">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">Calculated Payroll History & Payment Status</h3>
+              <h3 className="text-sm font-semibold text-white">{t.employeesDetail.payrollHistoryTitle}</h3>
               {!isStoreManager && (
                 <span className="text-[11px] text-zinc-400">
-                  Read-Only Roster (Store Manager required to disburse pay)
+                  {t.employeesDetail.payrollReadOnlyNote}
                 </span>
               )}
             </div>
@@ -768,12 +754,12 @@ export default function EmployeesPage() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-white/10 text-zinc-400 uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-4">Employee Name</th>
-                    <th className="py-3 px-4">Total Hours</th>
-                    <th className="py-3 px-4">Gross Pay</th>
-                    <th className="py-3 px-4">Tax Deductions (15%)</th>
-                    <th className="py-3 px-4">Net Payable</th>
-                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">{t.employeesDetail.colEmployee2}</th>
+                    <th className="py-3 px-4">{t.employeesDetail.colTotalHours2}</th>
+                    <th className="py-3 px-4">{t.employeesDetail.colGrossPay}</th>
+                    <th className="py-3 px-4">{t.employeesDetail.colTaxDed}</th>
+                    <th className="py-3 px-4">{t.employeesDetail.colNetPay}</th>
+                    <th className="py-3 px-4">{t.employeesDetail.colStatus}</th>
                     {isStoreManager && <th className="py-3 px-4"></th>}
                   </tr>
                 </thead>
@@ -789,11 +775,11 @@ export default function EmployeesPage() {
                         {p.isPaid ? (
                           <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1 w-fit">
                             <CheckCircle2 className="w-3 h-3" />
-                            <span>PAID</span>
+                            <span>{t.employeesDetail.badgePaid}</span>
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold">
-                            PENDING DISBURSEMENT
+                            {t.employeesDetail.badgePending}
                           </span>
                         )}
                       </td>
@@ -805,7 +791,7 @@ export default function EmployeesPage() {
                               disabled={busyId === p.id}
                               className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-all"
                             >
-                              Mark Paid
+                              {t.employeesDetail.btnMarkPaid}
                             </button>
                           )}
                         </td>
@@ -815,7 +801,7 @@ export default function EmployeesPage() {
                   {payrolls.length === 0 && (
                     <tr>
                       <td colSpan={isStoreManager ? 7 : 6} className="py-6 text-center text-zinc-500">
-                        No payroll calculations generated yet.
+                        {t.employeesDetail.noPayroll}
                       </td>
                     </tr>
                   )}
@@ -828,3 +814,4 @@ export default function EmployeesPage() {
     </div>
   );
 }
+

@@ -5,6 +5,7 @@ import { ChefHat, Clock, CheckCircle2, AlertCircle, Wifi, WifiOff, Flame, Loader
 import { motion, AnimatePresence } from 'framer-motion';
 import { io, Socket } from 'socket.io-client';
 import { api, getAuthUser } from '@/lib/api';
+import { useLocale } from '@/contexts/LocaleContext';
 
 type OrderItemStatus = 'QUEUED' | 'COOKING' | 'BUMPED' | 'SERVED' | 'VOIDED';
 
@@ -54,6 +55,7 @@ function toTicket(item: RawOrderItem): KdsTicket {
 }
 
 export default function KdsPage() {
+  const { t } = useLocale();
   const [stationFilter, setStationFilter] = useState('ALL');
   const [tickets, setTickets] = useState<KdsTicket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +63,12 @@ export default function KdsPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [cancellationAlert, setCancellationAlert] = useState<{
+    orderNumber: string;
+    actorName: string;
+    source: string;
+    reason: string;
+  } | null>(null);
 
   // Cancellation Modal state
   const [cancelTargetOrder, setCancelTargetOrder] = useState<{ orderId: string; orderNumber: string } | null>(null);
@@ -118,8 +126,12 @@ export default function KdsPage() {
     socket.on('kds:order_voided', (payload: { orderId: string; orderNumber: string; orderItemIds: string[]; reason: string; actorName: string; source: string }) => {
       setTickets((prev) => prev.filter((t) => t.orderId !== payload.orderId && !payload.orderItemIds.includes(t.id)));
       const sourceLabel = payload.source === 'KDS_KITCHEN' ? 'Kitchen' : 'Manager';
-      setToastMessage(`🚫 Order #${payload.orderNumber} was cancelled by ${payload.actorName} (${sourceLabel}) — Reason: ${payload.reason}`);
-      setTimeout(() => setToastMessage(null), 7000);
+      setCancellationAlert({
+        orderNumber: payload.orderNumber,
+        actorName: payload.actorName,
+        source: sourceLabel,
+        reason: payload.reason
+      });
     });
 
     // Dedicated appended items listener (card merging logic)
@@ -213,8 +225,8 @@ export default function KdsPage() {
   if (loading) {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        <span>Loading Kitchen Display System (KDS) queue...</span>
+        <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+        <span>{t.kds.loadingTickets}</span>
       </div>
     );
   }
@@ -224,7 +236,7 @@ export default function KdsPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">Failed to load KDS data</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.common.error}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -232,21 +244,38 @@ export default function KdsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto select-none">
-      {/* Toast Notification Banner */}
+    <div className="space-y-6 select-none font-sans max-w-7xl mx-auto">
+      {/* Real-time Cancellation Race Condition Alert Modal */}
       <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-3.5 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs font-semibold shadow-xl flex items-center justify-between"
-          >
-            <span>{toastMessage}</span>
-            <button onClick={() => setToastMessage(null)} className="text-amber-400 hover:text-white">
-              <X className="w-4 h-4" />
-            </button>
-          </motion.div>
+        {cancellationAlert && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-panel p-6 rounded-3xl border border-rose-500/40 max-w-md w-full text-center shadow-2xl relative"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-3 border border-rose-500/30">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1">
+                {t.kdsDetail.cancelledAlert.replace('{number}', cancellationAlert.orderNumber)}
+              </h3>
+              <p className="text-xs text-zinc-300 mb-4">
+                {t.kdsDetail.cancelledAlertSub.replace('{name}', cancellationAlert.actorName).replace('{source}', cancellationAlert.source)}
+                <br />
+                <span className="italic text-zinc-400">
+                  {t.posVoid.cancelledReason.replace('{reason}', cancellationAlert.reason)}
+                </span>
+              </p>
+              <button
+                onClick={() => setCancellationAlert(null)}
+                className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30"
+              >
+                {t.kdsDetail.dismissAlert}
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -257,8 +286,8 @@ export default function KdsPage() {
             <ChefHat className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Kitchen Display System (KDS)</h1>
-            <p className="text-xs text-zinc-400">Live Station Dispatch & Cooking Queue Matrix</p>
+            <h1 className="text-xl font-bold text-white tracking-tight">{t.kds.title}</h1>
+            <p className="text-xs text-zinc-400">{t.kds.subtitle}</p>
           </div>
         </div>
 
@@ -274,7 +303,7 @@ export default function KdsPage() {
                     : 'text-zinc-400 hover:text-white'
                 }`}
               >
-                {st}
+                {st === 'ALL' ? t.kds.allStations : (t.kds.stations as any)[st] || st}
               </button>
             ))}
           </div>
@@ -282,12 +311,12 @@ export default function KdsPage() {
           {isConnected ? (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
               <Wifi className="w-3.5 h-3.5" />
-              <span>WS Connected</span>
+              <span>{t.kds.connected}</span>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">
               <WifiOff className="w-3.5 h-3.5" />
-              <span>WS Disconnected</span>
+              <span>{t.kds.disconnected}</span>
             </div>
           )}
         </div>
@@ -300,7 +329,7 @@ export default function KdsPage() {
           <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
             <h2 className="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              <span>Queued Orders ({filteredTickets.filter((t) => t.status === 'QUEUED').length})</span>
+              <span>{t.kds.queued} ({filteredTickets.filter((t) => t.status === 'QUEUED').length})</span>
             </h2>
           </div>
 
@@ -318,15 +347,14 @@ export default function KdsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <span className="text-[10px] font-extrabold text-blue-400">{ticket.orderNumber}</span>
-                        <h3 className="text-sm font-bold text-white">Table {ticket.tableNumber}</h3>
+                        <h3 className="text-sm font-bold text-white">{t.tables.tableNumber} {ticket.tableNumber}</h3>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getTimerBadge(minutes)}`}>
-                          {minutes} mins
+                          {t.kds.minutesElapsed.replace('{m}', String(minutes))}
                         </span>
                         <button
                           onClick={() => setCancelTargetOrder({ orderId: ticket.orderId, orderNumber: ticket.orderNumber })}
-                          title="Cancel order from Kitchen"
                           className="p-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition-all"
                         >
                           <Ban className="w-3.5 h-3.5" />
@@ -338,20 +366,20 @@ export default function KdsPage() {
                       <p className="text-xs font-semibold text-white">
                         {ticket.quantity}x {ticket.itemName}
                       </p>
-                      {ticket.notes && <p className="text-[10px] text-amber-300 mt-1 italic">Note: {ticket.notes}</p>}
+                      {ticket.notes && <p className="text-[10px] text-amber-300 mt-1 italic">{t.kdsDetail.notePrefix}{ticket.notes}</p>}
                     </div>
 
                     <button
                       onClick={() => handleBump(ticket)}
                       className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs rounded-lg transition-all"
                     >
-                      Start Prep →
+                      {t.kds.startCooking}
                     </button>
                   </motion.div>
                 );
               })}
             {filteredTickets.filter((t) => t.status === 'QUEUED').length === 0 && (
-              <p className="text-xs text-zinc-500 text-center py-6">No queued tickets</p>
+              <p className="text-xs text-zinc-500 text-center py-6">{t.kdsDetail.noQueued}</p>
             )}
           </div>
         </div>
@@ -361,7 +389,7 @@ export default function KdsPage() {
           <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
             <h2 className="text-xs font-extrabold text-blue-400 uppercase tracking-wider flex items-center gap-2">
               <Flame className="w-4 h-4" />
-              <span>In Preparation ({filteredTickets.filter((t) => t.status === 'COOKING').length})</span>
+              <span>{t.kds.cooking} ({filteredTickets.filter((t) => t.status === 'COOKING').length})</span>
             </h2>
           </div>
 
@@ -379,15 +407,14 @@ export default function KdsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <span className="text-[10px] font-extrabold text-blue-400">{ticket.orderNumber}</span>
-                        <h3 className="text-sm font-bold text-white">Table {ticket.tableNumber}</h3>
+                        <h3 className="text-sm font-bold text-white">{t.tables.tableNumber} {ticket.tableNumber}</h3>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getTimerBadge(minutes)}`}>
-                          {minutes} mins
+                          {t.kds.minutesElapsed.replace('{m}', String(minutes))}
                         </span>
                         <button
                           onClick={() => setCancelTargetOrder({ orderId: ticket.orderId, orderNumber: ticket.orderNumber })}
-                          title="Cancel order from Kitchen"
                           className="p-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition-all"
                         >
                           <Ban className="w-3.5 h-3.5" />
@@ -399,20 +426,20 @@ export default function KdsPage() {
                       <p className="text-xs font-semibold text-white">
                         {ticket.quantity}x {ticket.itemName}
                       </p>
-                      {ticket.notes && <p className="text-[10px] text-amber-300 mt-1 italic">Note: {ticket.notes}</p>}
+                      {ticket.notes && <p className="text-[10px] text-amber-300 mt-1 italic">{t.kdsDetail.notePrefix}{ticket.notes}</p>}
                     </div>
 
                     <button
                       onClick={() => handleBump(ticket)}
                       className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition-all"
                     >
-                      Bump Ticket to Pass ✓
+                      {t.kds.bump}
                     </button>
                   </motion.div>
                 );
               })}
             {filteredTickets.filter((t) => t.status === 'COOKING').length === 0 && (
-              <p className="text-xs text-zinc-500 text-center py-6">Nothing cooking right now</p>
+              <p className="text-xs text-zinc-500 text-center py-6">{t.kdsDetail.noCooking}</p>
             )}
           </div>
         </div>
@@ -422,7 +449,7 @@ export default function KdsPage() {
           <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
             <h2 className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
-              <span>Completed / Expediter Pass ({filteredTickets.filter((t) => t.status === 'BUMPED').length})</span>
+              <span>{t.kds.bumped} ({filteredTickets.filter((t) => t.status === 'BUMPED').length})</span>
             </h2>
           </div>
 
@@ -437,15 +464,15 @@ export default function KdsPage() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-[10px] font-extrabold text-emerald-400">{ticket.orderNumber}</span>
-                    <span className="text-[10px] font-bold text-emerald-300">Ready for Server</span>
+                    <span className="text-[10px] font-bold text-emerald-300">{t.kdsDetail.readyForServer}</span>
                   </div>
                   <p className="text-xs font-semibold text-white">
-                    {ticket.quantity}x {ticket.itemName} (Table {ticket.tableNumber})
+                    {ticket.quantity}x {ticket.itemName} ({t.tables.tableNumber} {ticket.tableNumber})
                   </p>
                 </motion.div>
               ))}
             {filteredTickets.filter((t) => t.status === 'BUMPED').length === 0 && (
-              <p className="text-xs text-zinc-500 text-center py-6">Nothing passed yet this session</p>
+              <p className="text-xs text-zinc-500 text-center py-6">{t.kdsDetail.noPassed}</p>
             )}
           </div>
         </div>
@@ -476,16 +503,18 @@ export default function KdsPage() {
                 <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-2 border border-rose-500/30">
                   <Ban className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-bold text-white">Cancel Order #{cancelTargetOrder.orderNumber}</h3>
+                <h3 className="text-lg font-bold text-white">
+                  {t.kdsDetail.cancelModalTitle.replace('{number}', cancelTargetOrder.orderNumber)}
+                </h3>
                 <p className="text-xs text-zinc-400">
-                  This action will cancel the kitchen ticket, restore ingredient stock, and log an audit trail.
+                  {t.kdsDetail.cancelModalDesc}
                 </p>
               </div>
 
               <form onSubmit={handleCancelOrderSubmit} className="space-y-4">
                 <div>
                   <label className="text-xs font-medium text-zinc-300 block mb-1">
-                    Cancellation Reason (Required) <span className="text-rose-400">*</span>
+                    {t.kdsDetail.cancelReasonLabel}
                   </label>
                   <textarea
                     rows={3}
@@ -493,7 +522,7 @@ export default function KdsPage() {
                     required
                     value={cancelReason}
                     onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="e.g. Guest walked out / Duplicate ticket fired by mistake"
+                    placeholder={t.kdsDetail.cancelReasonPlaceholder}
                     className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-rose-500/50"
                   />
                 </div>
@@ -514,7 +543,7 @@ export default function KdsPage() {
                     }}
                     className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs border border-white/10"
                   >
-                    Keep Order
+                    {t.kdsDetail.btnKeepOrder}
                   </button>
 
                   <button
@@ -523,7 +552,7 @@ export default function KdsPage() {
                     className="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white font-bold text-xs shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1.5 transition-all"
                   >
                     {cancelling && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>Confirm Cancel</span>
+                    <span>{t.kdsDetail.btnConfirmCancel}</span>
                   </button>
                 </div>
               </form>

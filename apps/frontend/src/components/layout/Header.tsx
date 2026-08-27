@@ -4,8 +4,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Search, Bell, Building2, ChevronDown, Clock } from 'lucide-react';
+import LanguageSwitcher from '@/components/layout/LanguageSwitcher';
+import { useLocale } from '@/contexts/LocaleContext';
 
 export default function Header() {
+  const { t } = useLocale();
   const [user, setUser] = useState<any>(null);
   const [shiftStatus, setShiftStatus] = useState<{ isClockedIn: boolean } | null>(null);
   const pathname = usePathname();
@@ -38,7 +41,7 @@ export default function Header() {
         <Search className="w-4 h-4 text-zinc-400" />
         <input
           type="text"
-          placeholder="Search orders, dishes, staff (⌘K)..."
+          placeholder={t.header.searchPlaceholder}
           className="bg-transparent text-white focus:outline-none w-full placeholder-zinc-500"
         />
       </div>
@@ -49,14 +52,14 @@ export default function Header() {
         <Link href="/my-attendance">
           <button className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/50 hover:to-indigo-600/50 border border-blue-500/40 text-xs font-semibold text-white shadow-md shadow-blue-500/10 transition-all">
             <Clock className="w-3.5 h-3.5 text-blue-400" />
-            <span>Shift Attendance</span>
+            <span>{t.header.shiftAttendance}</span>
             {shiftStatus !== null && (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide uppercase transition-all ${
                 shiftStatus.isClockedIn
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/20'
                   : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
               }`}>
-                {shiftStatus.isClockedIn ? '● On' : 'Off'}
+                {shiftStatus.isClockedIn ? t.header.shiftOn : t.header.shiftOff}
               </span>
             )}
           </button>
@@ -65,12 +68,18 @@ export default function Header() {
         {/* Active Branch Badge */}
         <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-zinc-300">
           <Building2 className="w-3.5 h-3.5 text-blue-400" />
-          <span className="font-medium">Aura Downtown Fine Dining</span>
+          <span className="font-medium">{t.brand.branchName}</span>
           <ChevronDown className="w-3 h-3 text-zinc-500" />
         </div>
 
+        {/* Language Switcher */}
+        <LanguageSwitcher />
+
         {/* Notifications */}
-        <button className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 relative transition-colors">
+        <button
+          title={t.header.notifications}
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 relative transition-colors"
+        >
           <Bell className="w-4 h-4" />
           <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-zinc-900" />
         </button>
@@ -89,3 +98,4 @@ export default function Header() {
     </header>
   );
 }
+

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { BookOpen, Plus, Loader2, AlertCircle, X, EyeOff, Eye } from 'lucide-react';
 import { api, getAuthUser } from '@/lib/api';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface MenuItem {
   id: string;
@@ -23,6 +24,7 @@ interface Category {
 const STATIONS = ['GRILL', 'COLD_PREP', 'BAR'];
 
 export default function MenuPage() {
+  const { t } = useLocale();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -37,7 +39,7 @@ export default function MenuPage() {
 
   const fetchMenu = useCallback(async () => {
     if (!restaurantId) {
-      setLoadError('目前登入帳號沒有 restaurantId，無法載入菜單資料。');
+      setLoadError(t.menu.noCategory);
       setLoading(false);
       return;
     }
@@ -50,13 +52,13 @@ export default function MenuPage() {
       }
     } catch (err: any) {
       setLoadError(
-        err.response?.data?.message || '無法連線到後端 API（http://localhost:4000）。請確認 backend 是否已啟動。'
+        err.response?.data?.message || t.common.error
       );
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [restaurantId]);
+  }, [restaurantId, t]);
 
   useEffect(() => {
     fetchMenu();
@@ -66,7 +68,7 @@ export default function MenuPage() {
     e.preventDefault();
     setFormError('');
     if (!form.categoryId || !form.name || !form.basePrice) {
-      setFormError('請填寫菜名、分類與價格');
+      setFormError(t.menu.modal.namePlaceholder);
       return;
     }
     setCreating(true);
@@ -82,7 +84,7 @@ export default function MenuPage() {
       setForm((f) => ({ ...f, name: '', description: '', basePrice: '' }));
       await fetchMenu();
     } catch (err: any) {
-      setFormError(err.response?.data?.message || '建立失敗，請稍後再試。');
+      setFormError(err.response?.data?.message || t.common.error);
     } finally {
       setCreating(false);
     }
@@ -106,7 +108,7 @@ export default function MenuPage() {
     return (
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center text-zinc-400 text-sm gap-2">
         <Loader2 className="w-4 h-4 animate-spin" />
-        <span>正在向後端 API 載入菜單資料...</span>
+        <span>{t.menu.loadingMenu}</span>
       </div>
     );
   }
@@ -116,7 +118,7 @@ export default function MenuPage() {
       <div className="h-[calc(100vh-6rem)] flex items-center justify-center">
         <div className="glass-panel p-6 rounded-2xl border border-rose-500/30 max-w-md text-center">
           <AlertCircle className="w-8 h-8 text-rose-400 mx-auto mb-3" />
-          <p className="text-sm text-white font-semibold mb-1">無法載入菜單資料</p>
+          <p className="text-sm text-white font-semibold mb-1">{t.common.error}</p>
           <p className="text-xs text-zinc-400">{loadError}</p>
         </div>
       </div>
@@ -127,8 +129,8 @@ export default function MenuPage() {
     <div className="space-y-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Menu & Recipe Specifications</h1>
-          <p className="text-xs text-zinc-400 mt-1">Dish Configuration with Kitchen Station Routing & Ingredient Mappings</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">{t.menu.title}</h1>
+          <p className="text-xs text-zinc-400 mt-1">{t.menu.subtitle}</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -136,12 +138,12 @@ export default function MenuPage() {
           className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>Create New Dish</span>
+          <span>{t.menu.createDish}</span>
         </button>
       </div>
 
       {categories.length === 0 && (
-        <p className="text-xs text-zinc-500 text-center py-10">此餐廳尚無菜單分類資料（請確認已執行 db:seed）</p>
+        <p className="text-xs text-zinc-500 text-center py-10">{t.menu.noCategory}</p>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -159,21 +161,21 @@ export default function MenuPage() {
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                  {dish.station}
+                  {(t.kds.stations as any)[dish.station] || dish.station}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-zinc-400 border border-white/10">
                   {dish.categoryName}
                 </span>
                 {!dish.isAvailable && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                    86'd
+                    {t.menu.itemUnavailable}
                   </span>
                 )}
               </div>
 
               {dish.ingredients.length > 0 && (
                 <div className="mt-4 pt-3 border-t border-white/10">
-                  <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider mb-1.5">Mapped Recipe Ingredients:</p>
+                  <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider mb-1.5">{t.menu.mappedIngredients}</p>
                   <div className="flex flex-wrap gap-1">
                     {dish.ingredients.map((ing, i) => (
                       <span key={i} className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-zinc-300">
@@ -197,7 +199,7 @@ export default function MenuPage() {
               ) : (
                 <Eye className="w-3 h-3" />
               )}
-              <span>{dish.isAvailable ? 'Mark 86 / Unavailable' : 'Restore Availability'}</span>
+              <span>{dish.isAvailable ? t.menu.markUnavailable : t.menu.markAvailable}</span>
             </button>
           </div>
         ))}
@@ -209,7 +211,7 @@ export default function MenuPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-blue-400" />
-                <h2 className="text-base font-semibold text-white">Create New Dish</h2>
+                <h2 className="text-base font-semibold text-white">{t.menu.createDish}</h2>
               </div>
               <button onClick={() => setShowCreate(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-4 h-4" />
@@ -218,7 +220,7 @@ export default function MenuPage() {
 
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
-                <label className="text-[11px] text-zinc-400 font-medium">Category</label>
+                <label className="text-[11px] text-zinc-400 font-medium">{t.menu.modal.categoryLabel}</label>
                 <select
                   value={form.categoryId}
                   onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
@@ -232,26 +234,26 @@ export default function MenuPage() {
                 </select>
               </div>
               <div>
-                <label className="text-[11px] text-zinc-400 font-medium">Dish Name</label>
+                <label className="text-[11px] text-zinc-400 font-medium">{t.menu.modal.nameLabel}</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
-                  placeholder="e.g. Seared Duck Breast"
+                  placeholder={t.menu.modal.namePlaceholder}
                 />
               </div>
               <div>
-                <label className="text-[11px] text-zinc-400 font-medium">Description</label>
+                <label className="text-[11px] text-zinc-400 font-medium">{t.menu.modal.descLabel}</label>
                 <input
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   className="w-full mt-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500/50"
-                  placeholder="Optional short description"
+                  placeholder={t.menu.modal.descPlaceholder}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] text-zinc-400 font-medium">Base Price ($)</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">{t.menu.modal.priceLabel}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -262,7 +264,7 @@ export default function MenuPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-zinc-400 font-medium">Kitchen Station</label>
+                  <label className="text-[11px] text-zinc-400 font-medium">{t.menu.modal.stationLabel}</label>
                   <select
                     value={form.station}
                     onChange={(e) => setForm({ ...form, station: e.target.value })}
@@ -270,7 +272,7 @@ export default function MenuPage() {
                   >
                     {STATIONS.map((s) => (
                       <option key={s} value={s} className="bg-zinc-900">
-                        {s}
+                        {(t.kds.stations as any)[s] || s}
                       </option>
                     ))}
                   </select>
@@ -285,7 +287,7 @@ export default function MenuPage() {
                 className="w-full mt-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition-all"
               >
                 {creating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>{creating ? 'Creating...' : 'Create Dish'}</span>
+                <span>{creating ? t.menu.modal.saving : t.menu.modal.submit}</span>
               </button>
             </form>
           </div>
@@ -294,3 +296,4 @@ export default function MenuPage() {
     </div>
   );
 }
+
