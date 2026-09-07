@@ -5,10 +5,12 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('❌ Security Guard: Database seed execution is strictly BLOCKED in production mode (NODE_ENV=production).');
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== 'true') {
+    console.error('❌ Security Guard: Database seed execution is blocked in production mode unless ALLOW_SEED=true is provided.');
+    console.log('👉 To run seed on Render, use: ALLOW_SEED=true npm run db:seed');
     process.exit(1);
   }
+
 
   console.log('🌱 Seeding Enterprise Restaurant Management System (ERMS)...');
 
