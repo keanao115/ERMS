@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "postbuild": "node -e \"const fs=require('fs'); if(fs.existsSync('dist/src/main.js')&&!fs.existsSync('dist/main.js')) fs.writeFileSync('dist/main.js', \\\"require('./src/main.js');\\\\n\\\");\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "ts-node prisma/seed.ts",
