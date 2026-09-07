@@ -47,8 +47,24 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
+  // Automatic Bootstrap Seed for fresh databases (e.g. Render cloud deployment)
+  try {
+    const { PrismaService } = await import('./database/prisma.service');
+    const { seedDatabase } = await import('./database/seed-data');
+    const prisma = app.get(PrismaService);
+    const userCount = await prisma.user.count();
+    if (userCount === 0) {
+      logger.log('🌱 Empty database detected (0 users). Auto-seeding initial enterprise accounts and menu...');
+      await seedDatabase(prisma);
+      logger.log('✅ Initial database seed completed automatically!');
+    }
+  } catch (seedErr: any) {
+    logger.warn(`Auto-seed check: ${seedErr.message}`);
+  }
+
   const port = process.env.PORT || 4000;
   await app.listen(port, '0.0.0.0');
+
 
 
   logger.log(`🚀 ERMS Backend Service running on port ${port}`);

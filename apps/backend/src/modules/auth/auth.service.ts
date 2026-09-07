@@ -128,4 +128,18 @@ export class AuthService {
     }
     return { success: true, message: 'Logged out successfully' };
   }
+
+  async seedIfEmpty() {
+    const { seedDatabase } = await import('../../database/seed-data');
+    const userCount = await this.prisma.user.count();
+    if (userCount > 0) {
+      return { success: false, message: 'Database already has registered users.' };
+    }
+    await seedDatabase(this.prisma);
+    return {
+      success: true,
+      message: 'Database seeded successfully! Default accounts: admin@aura.com, manager@aura.com, cashier@aura.com, chef@aura.com (password: Password123!)'
+    };
+  }
 }
+

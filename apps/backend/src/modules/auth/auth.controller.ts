@@ -37,4 +37,11 @@ export class AuthController {
     const jti = req.user?.jti;
     return this.authService.logout(jti);
   }
+
+  @ApiOperation({ summary: 'One-click database initialization seed' })
+  @Get('seed')
+  async triggerSeed() {
+    return this.authService.seedIfEmpty();
+  }
 }
+
