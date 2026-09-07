@@ -1,7 +1,8 @@
 import 'dotenv/config';
 
-// Force DATABASE_URL to port 5433 to connect to Docker container
-process.env.DATABASE_URL = 'postgresql://erms_user:erms_password_2026@localhost:5433/erms_production?schema=public';
+// Fallback to local Docker container port 5433 if DATABASE_URL is not set in environment
+process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://erms_user:erms_password_2026@localhost:5433/erms_production?schema=public';
+
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -47,7 +48,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 4000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
+
 
   logger.log(`🚀 ERMS Backend Service running on port ${port}`);
   logger.log(`📚 OpenAPI Docs available at http://localhost:${port}/api/docs`);
